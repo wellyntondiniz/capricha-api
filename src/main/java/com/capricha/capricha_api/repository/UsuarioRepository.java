@@ -8,8 +8,10 @@ import org.springframework.stereotype.Repository;
 import com.capricha.capricha_api.entidade.Usuario;
 
 @Repository
-public interface UsuarioRepository extends JpaRepository<UsuarioRepository, Integer> {
+public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 	
 	public List<Usuario> findAllByAtivo(Boolean ativo);
+	
+	boolean existsByEmail(String email);
 	
 }

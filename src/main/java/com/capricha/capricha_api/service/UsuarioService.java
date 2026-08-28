@@ -18,4 +18,23 @@ public class UsuarioService {
 		return usuarioRepository.findAllByAtivo(true);
 	}
 	
+	public Usuario getUsuarioById(Integer id) {
+		Usuario usuario = usuarioRepository.findById(id).get();
+		return usuario;
+	}
+	
+	public Usuario cadastrarUsuario(Usuario usuario) {
+		validarCadastro(usuario);
+		return salvar(usuario);
+	}
+	
+	public Usuario salvar(Usuario usuario) {
+		return usuarioRepository.save(usuario);
+	}
+	
+	private void validarCadastro(Usuario usuario) {
+	    if (usuarioRepository.existsByEmail(usuario.getEmail())) {
+	        throw new RuntimeException("Email já cadastrado!");
+	    }
+	}
 }
