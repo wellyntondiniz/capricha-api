@@ -1,0 +1,2 @@
+ALTER TABLE events
+    MODIFY COLUMN check_in_token VARCHAR(36) NOT NULL;
