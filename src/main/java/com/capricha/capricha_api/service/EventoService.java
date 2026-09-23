@@ -1,5 +1,6 @@
 package com.capricha.capricha_api.service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,7 @@ public class EventoService {
 
 	public Evento cadastrarEvento(Evento evento) {
 		validar(evento);
+		validarDataInicioNaoPassada(evento);
 		evento.setAtivo(true);
 		return salvar(evento);
 	}
@@ -41,6 +43,14 @@ public class EventoService {
 		evento.setDescricao(dados.getDescricao());
 		evento.setDataInicio(dados.getDataInicio());
 		evento.setDataTermino(dados.getDataTermino());
+		evento.setParticipantes(dados.getParticipantes());
+		evento.setAtividades(dados.getAtividades());
+		if (dados.getFotoPerfil() != null) {
+			evento.setFotoPerfil(dados.getFotoPerfil());
+		}
+		if (dados.getBanner() != null) {
+			evento.setBanner(dados.getBanner());
+		}
 		return salvar(evento);
 	}
 
@@ -68,6 +78,20 @@ public class EventoService {
 			throw new ResponseStatusException(
 					HttpStatus.BAD_REQUEST,
 					"Data de término exige data de início!"
+			);
+		}
+	}
+
+	/**
+	 * Só se aplica ao cadastro de um evento novo — de propósito não entra em
+	 * validar(), que também é usado por atualizarEvento(); senão editar a
+	 * descrição de um evento que já aconteceu no passado ficaria impossível.
+	 */
+	private void validarDataInicioNaoPassada(Evento evento) {
+		if (evento.getDataInicio() != null && evento.getDataInicio().toLocalDate().isBefore(LocalDate.now())) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST,
+					"Data de início não pode ser anterior à data atual!"
 			);
 		}
 	}

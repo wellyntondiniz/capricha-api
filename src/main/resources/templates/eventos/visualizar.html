@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:text="${evento.nome} + ' - Capricha'">Evento</title>
+	<link rel="stylesheet" th:href="@{/css/eventos.css}">
+</head>
+<body>
+	<div class="topo-visualizar" th:if="${evento.banner}">
+		<img
+			th:src="@{/imagens/eventos/{arquivo}(arquivo=${evento.banner})}"
+			class="banner-topo"
+			alt="">
+		<a class="link-voltar link-voltar-banner" th:href="@{/eventos}">&larr; Voltar para eventos</a>
+	</div>
+
+	<div class="container container-visualizar">
+		<a class="link-voltar" th:unless="${evento.banner}" th:href="@{/eventos}">&larr; Voltar para eventos</a>
+
+		<div class="cabecalho-visualizar" th:classappend="${evento.banner} ? 'cabecalho-com-banner' : ''">
+			<img
+				th:if="${evento.fotoPerfil}"
+				th:src="@{/imagens/eventos/{arquivo}(arquivo=${evento.fotoPerfil})}"
+				class="foto-perfil-visualizar"
+				alt="">
+			<div th:unless="${evento.fotoPerfil}" class="foto-perfil-visualizar avatar-vazio"></div>
+
+			<div class="info-cabecalho-visualizar">
+				<h1 th:text="${evento.nome}">Nome do evento</h1>
+				<p class="periodo-visualizar" th:if="${evento.dataInicio}">
+					<span th:text="${evento.dataInicioFormatada}"></span>
+					<span th:if="${evento.dataTermino}"> até <span th:text="${evento.dataTerminoFormatada}"></span></span>
+				</p>
+			</div>
+		</div>
+
+		<section class="secao-visualizar" th:if="${evento.descricao}">
+			<h2>Sobre o evento</h2>
+			<p th:text="${evento.descricao}"></p>
+		</section>
+
+		<section class="secao-visualizar" th:if="${not #lists.isEmpty(evento.atividades)}">
+			<h2>Atividades do dia</h2>
+			<ul class="lista-simples">
+				<li th:each="atividade : ${evento.atividades}" th:text="${atividade}"></li>
+			</ul>
+		</section>
+
+		<section class="secao-visualizar" th:if="${not #lists.isEmpty(evento.participantes)}">
+			<h2>Participantes / Palestrantes</h2>
+			<ul class="lista-simples">
+				<li th:each="participante : ${evento.participantes}" th:text="${participante}"></li>
+			</ul>
+		</section>
+	</div>
+</body>
+</html>
