@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:text="${evento.id} != null ? 'Editar evento - Capricha' : 'Novo evento - Capricha'">Evento</title>
+	<link rel="stylesheet" th:href="@{/css/eventos.css}">
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1 th:text="${evento.id} != null ? 'Editar evento' : 'Novo evento'">Evento</h1>
+			<a class="link-voltar" th:href="@{/eventos}">&larr; Voltar</a>
+		</div>
+
+		<p class="erro" th:if="${erro}" th:text="${erro}"></p>
+
+		<form
+			class="formulario"
+			th:object="${evento}"
+			th:action="${evento.id} != null ? @{/eventos/{id}(id=${evento.id})} : @{/eventos}"
+			method="post"
+			enctype="multipart/form-data">
+
+			<label for="nome">Nome *</label>
+			<input type="text" id="nome" th:field="*{nome}" placeholder="Ex: Semana Acadêmica de Computação">
+			<span class="erro-campo" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></span>
+
+			<label for="descricao">Descrição</label>
+			<textarea id="descricao" th:field="*{descricao}" placeholder="Digite uma descrição" rows="4"></textarea>
+
+			<label for="dataInicio">Data de início</label>
+			<input
+				type="datetime-local"
+				id="dataInicio"
+				th:field="*{dataInicio}"
+				th:min="${hoje} != null ? ${hoje} + 'T00:00' : null">
+
+			<label for="dataTermino">Data de término</label>
+			<input type="datetime-local" id="dataTermino" th:field="*{dataTermino}">
+
+			<label for="participantesTexto">Participantes / Palestrantes</label>
+			<textarea
+				id="participantesTexto"
+				name="participantesTexto"
+				th:text="${evento.participantesTexto}"
+				placeholder="Um nome por linha, ex:&#10;Maria Silva&#10;João Pereira"
+				rows="4"></textarea>
+			<span class="dica-campo">Um nome por linha.</span>
+
+			<label for="atividadesTexto">Atividades do dia</label>
+			<textarea
+				id="atividadesTexto"
+				name="atividadesTexto"
+				th:text="${evento.atividadesTexto}"
+				placeholder="Um tópico por linha, ex:&#10;09h - Credenciamento&#10;10h - Palestra de abertura"
+				rows="4"></textarea>
+			<span class="dica-campo">Um tópico por linha.</span>
+
+			<label for="fotoPerfil">Foto de perfil do evento</label>
+			<img
+				th:if="${evento.fotoPerfil}"
+				th:src="@{/imagens/eventos/{arquivo}(arquivo=${evento.fotoPerfil})}"
+				class="preview-perfil"
+				alt="Foto de perfil atual">
+			<input type="file" id="fotoPerfil" name="arquivoFotoPerfil" accept="image/*">
+			<span class="dica-campo">Recomendado: imagem quadrada, mínimo 400x400px, pra não ficar cortada.</span>
+			<span class="dica-campo" th:if="${evento.fotoPerfil}">Deixe em branco pra manter a imagem atual.</span>
+
+			<label for="banner">Banner do evento</label>
+			<img
+				th:if="${evento.banner}"
+				th:src="@{/imagens/eventos/{arquivo}(arquivo=${evento.banner})}"
+				class="preview-banner"
+				alt="Banner atual">
+			<input type="file" id="banner" name="arquivoBanner" accept="image/*">
+			<span class="dica-campo">Recomendado: imagem larga, ex. 1200x300px, evite textos importantes nas bordas.</span>
+			<span class="dica-campo" th:if="${evento.banner}">Deixe em branco pra manter a imagem atual.</span>
+
+			<div class="acoes-formulario">
+				<a class="botao botao-secundario" th:href="@{/eventos}">Cancelar</a>
+				<button type="submit" class="botao botao-primario">Salvar</button>
+			</div>
+		</form>
+	</div>
+</body>
+</html>
