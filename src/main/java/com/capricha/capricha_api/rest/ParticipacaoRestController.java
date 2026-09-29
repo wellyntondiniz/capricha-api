@@ -36,7 +36,7 @@ public class ParticipacaoRestController {
 		return participacaoService.getParticipacoesByUsuario(usuarioId);
 	}
 	
-	@GetMapping("/{eventoId}/byUsuario")
+	@GetMapping("/{eventoId}/byEvento")
 	public List<Participacao> getParticipacoesByEvento(@PathVariable Integer eventoId) {
 		return participacaoService.getParticipacoesByEvento(eventoId);
 	}
