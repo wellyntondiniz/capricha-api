@@ -30,7 +30,7 @@ public class UsuarioRestController {
 	}
 	
 	@PostMapping
-	public Usuario salvar(@Valid @RequestBody Usuario usuario) {
-		return usuarioService.cadastrarUsuario(usuario);
+	public Usuario salvar(@Valid @RequestBody CadastroUsuarioRequest cadastro) {
+		return usuarioService.cadastrarUsuario(cadastro.paraUsuario());
 	}
 }
