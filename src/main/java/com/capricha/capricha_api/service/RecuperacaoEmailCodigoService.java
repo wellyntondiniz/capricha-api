@@ -49,7 +49,7 @@ public class RecuperacaoEmailCodigoService {
         if(c.validado)return;
         c.tentativas++; codigos.save(c);
         if(!MessageDigest.isEqual(c.hash.getBytes(StandardCharsets.UTF_8),
-                hash(id+":"+codigo).getBytes(StandardCharsets.UTF_8))) throw invalido();
+                hash(id+":"+codigo).getBytes(StandardCharsets.UTF_8))) throw c.tentativas>=5 ? limiteAtingido() : invalido();
         c.validado=true; codigos.save(c);
     }
     @Transactional(noRollbackFor=ResponseStatusException.class)
@@ -67,11 +67,19 @@ public class RecuperacaoEmailCodigoService {
     }
     private CodigoEmail obter(String id){
         CodigoEmail c=codigos.findById(id).orElseThrow(this::invalido);
-        if(c.utilizado||c.tentativas>=5||!c.expira.isAfter(Instant.now()))throw invalido();
+        if(c.utilizado)throw utilizado();
+        if(c.tentativas>=5)throw limiteAtingido();
+        if(!c.expira.isAfter(Instant.now()))throw expirado();
         return c;
     }
     private ResponseStatusException invalido(){return new ResponseStatusException(HttpStatus.BAD_REQUEST,
-        "Código inválido, expirado, já utilizado ou limite de tentativas atingido.");}
+        "Código inválido. Verifique o código recebido.");}
+    private ResponseStatusException expirado(){return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+        "O código expirou. Solicite um novo código.");}
+    private ResponseStatusException utilizado(){return new ResponseStatusException(HttpStatus.BAD_REQUEST,
+        "Este código já foi utilizado. Solicite um novo código.");}
+    private ResponseStatusException limiteAtingido(){return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+        "O limite de tentativas foi atingido. Tente novamente mais tarde.");}
     private String hash(String v){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
         .digest(v.getBytes(StandardCharsets.UTF_8)));}catch(Exception e){throw new IllegalStateException(e);}}
 }

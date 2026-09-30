@@ -1,5 +1,6 @@
 package com.capricha.capricha_api.service;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.*;
@@ -15,6 +16,10 @@ import org.springframework.web.server.ResponseStatusException;
     @org.springframework.context.annotation.PropertySource(value="file:./application-secrets.properties", ignoreResourceNotFound=true)
 })
 public class EnvioCodigoEmail {
+    private static final Logger LOG = LoggerFactory.getLogger(EnvioCodigoEmail.class);
+
+    private static final String MENSAGEM_INDISPONIVEL =
+        "Não foi possível enviar o código no momento. Tente novamente em alguns minutos.";
     private final JavaMailSender mail;
     private final Environment ambiente;
     private final String modo, remetente, senha;
@@ -29,15 +34,15 @@ public class EnvioCodigoEmail {
         return modo.equals("console") && ambiente.acceptsProfiles(Profiles.of("local"));
     }
     public void validar() {
-        if (!simulado() && (remetente.isBlank() || senha.isBlank()))
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "Envio de e-mail não configurado. Defina MAIL_USERNAME e MAIL_APP_PASSWORD.");
+        if (!simulado() && (remetente.isBlank() || senha.isBlank())) {
+            LOG.error("Envio de e-mail não configurado. Defina MAIL_USERNAME e MAIL_APP_PASSWORD.");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, MENSAGEM_INDISPONIVEL);
+        }
     }
     public void enviar(String destinatario, String codigo, String desafio) {
         validar();
         if (simulado()) {
-            LoggerFactory.getLogger(EnvioCodigoEmail.class).info(
-                "[E-MAIL SIMULADO - NÃO ENVIADO] Desafio {} | Código: {} | Validade: 10 minutos",
+            LOG.info("[E-MAIL SIMULADO - NÃO ENVIADO] Desafio {} | Código: {} | Validade: 10 minutos",
                 desafio, codigo);
             return;
         }
@@ -48,8 +53,8 @@ public class EnvioCodigoEmail {
             + "\n\nEle é válido por 10 minutos. Se você não solicitou, ignore.");
         try { mail.send(mensagem); }
         catch (org.springframework.mail.MailException erro) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "Não foi possível enviar o e-mail. Verifique a senha de aplicativo do Gmail.");
+            LOG.error("Falha ao enviar e-mail de recuperação. Verifique a senha de aplicativo do Gmail.", erro);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, MENSAGEM_INDISPONIVEL);
         }
     }
 }
