@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "usuario")
 public class Usuario {
@@ -23,6 +25,8 @@ public class Usuario {
 	@Email(message = "Email inválido!")
 	private String email;
 	
+	// Guarda somente o hash da senha (ver Senhas). Nunca é enviado nas respostas da API.
+	@JsonIgnore
 	@Column(name = "senha")
 	private String senha;
 	

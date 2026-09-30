@@ -75,6 +75,7 @@ class CadastroUsuarioValidacaoTest {
 		when(usuarioService.cadastrarUsuario(any())).thenAnswer(chamada -> chamada.getArgument(0, Usuario.class));
 		cadastrar("{\"nome\":\" joao \",\"email\":\" joao@exemplo.com \",\"senha\":\"senha1234\"}", 200,
 				jsonPath("$.nome").value("joao"),
-				jsonPath("$.email").value("joao@exemplo.com"));
+				jsonPath("$.email").value("joao@exemplo.com"),
+				jsonPath("$.senha").doesNotExist());
 	}
 }

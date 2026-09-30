@@ -14,8 +14,6 @@ import com.capricha.capricha_api.service.UsuarioService;
 
 import jakarta.validation.Valid;
 
-import com.capricha.capricha_api.entidade.Usuario;
-
 @RestController
 @RequestMapping(value="/usuario")
 @CrossOrigin
@@ -25,12 +23,12 @@ public class UsuarioRestController {
 	UsuarioService usuarioService;
 	
 	@GetMapping
-	public List<Usuario> getUsuarios() {
-		return usuarioService.getUsuarios();
+	public List<UsuarioResponse> getUsuarios() {
+		return usuarioService.getUsuarios().stream().map(UsuarioResponse::de).toList();
 	}
 	
 	@PostMapping
-	public Usuario salvar(@Valid @RequestBody CadastroUsuarioRequest cadastro) {
-		return usuarioService.cadastrarUsuario(cadastro.paraUsuario());
+	public UsuarioResponse salvar(@Valid @RequestBody CadastroUsuarioRequest cadastro) {
+		return UsuarioResponse.de(usuarioService.cadastrarUsuario(cadastro.paraUsuario()));
 	}
 }
