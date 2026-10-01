@@ -1,5 +1,6 @@
 package com.capricha.capricha_api.controller;
 
+import com.capricha.capricha_api.entidade.Pergunta;
 import com.capricha.capricha_api.model.Palestra;
 import com.capricha.capricha_api.service.PalestraService;
 import org.springframework.web.bind.annotation.*;
@@ -25,5 +26,15 @@ public class PalestraController {
     @GetMapping
     public List<Palestra> listar() {
         return palestraService.listar();
+    }
+    
+    @PostMapping("/{id}/perguntas")
+    public Pergunta adicionarPergunta(@PathVariable Long id, @RequestBody Pergunta pergunta) {
+        return palestraService.adicionarPergunta(id, pergunta);
+    }
+    
+    @GetMapping("/{id}/perguntas")
+    public List<Pergunta> listarPerguntas(@PathVariable Long id) {
+        return palestraService.listarPerguntas(id);
     }
 }

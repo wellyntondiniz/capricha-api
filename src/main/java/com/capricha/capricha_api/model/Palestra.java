@@ -1,9 +1,16 @@
 package com.capricha.capricha_api.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.capricha.capricha_api.entidade.Pergunta;
+
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 
 @Entity
 public class Palestra {
@@ -23,6 +30,13 @@ public class Palestra {
     private String horario;
 
     private String evento;
+    
+    @OneToMany(
+        mappedBy = "palestra",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private List<Pergunta> perguntas = new ArrayList<>();
 
     public Palestra() {
     }
@@ -81,5 +95,14 @@ public class Palestra {
 
     public void setEvento(String evento) {
         this.evento = evento;
+    }
+    
+    public List<Pergunta> getPerguntas() {
+    	return perguntas;
+    }
+    
+    public void adicionarPergunta(Pergunta pergunta) {
+    	perguntas.add(pergunta);
+    	pergunta.setPalestra(this);
     }
 }
