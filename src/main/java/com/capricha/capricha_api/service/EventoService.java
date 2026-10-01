@@ -1,6 +1,8 @@
 package com.capricha.capricha_api.service;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,8 @@ import com.capricha.capricha_api.repository.EventoRepository;
 
 @Service
 public class EventoService {
+
+	private static final ZoneId FUSO = ZoneId.of("America/Cuiaba");
 
 	@Autowired
 	private EventoRepository eventoRepository;
@@ -66,6 +70,13 @@ public class EventoService {
 
 	private void validar(Evento evento) {
 		if (evento.getDataInicio() != null && evento.getDataTermino() != null) {
+			if (evento.getDataTermino().isEqual(evento.getDataInicio())) {
+				throw new ResponseStatusException(
+						HttpStatus.BAD_REQUEST,
+						"Início e término do evento não podem ser no mesmo horário!"
+				);
+			}
+
 			if (evento.getDataTermino().isBefore(evento.getDataInicio())) {
 				throw new ResponseStatusException(
 						HttpStatus.BAD_REQUEST,
@@ -84,10 +95,12 @@ public class EventoService {
 
 
 	private void validarDataInicioNaoPassada(Evento evento) {
-		if (evento.getDataInicio() != null && evento.getDataInicio().toLocalDate().isBefore(LocalDate.now())) {
+		LocalDateTime agora = LocalDateTime.now(FUSO).truncatedTo(ChronoUnit.MINUTES);
+
+		if (evento.getDataInicio() != null && evento.getDataInicio().isBefore(agora)) {
 			throw new ResponseStatusException(
 					HttpStatus.BAD_REQUEST,
-					"Data de início não pode ser anterior à data atual!"
+					"Data e horário de início não podem ser anteriores ao momento atual!"
 			);
 		}
 	}
