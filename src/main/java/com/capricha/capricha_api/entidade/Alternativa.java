@@ -1,5 +1,7 @@
 package com.capricha.capricha_api.entidade;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -51,6 +53,7 @@ public class Alternativa {
 		this.correta = correta;
 	}
 	
+	@JsonIgnore
 	public Pergunta getPergunta() {
 		return pergunta;
 	}

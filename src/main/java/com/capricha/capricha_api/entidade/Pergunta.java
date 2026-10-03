@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.capricha.capricha_api.model.Palestra;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -36,7 +37,7 @@ public class Pergunta {
         cascade = CascadeType.ALL,
         orphanRemoval = true
     )
-    private List<Alternativa> alternativas = new ArrayList<>();
+    private List<Alternativa> alternativas;
 	
 	@Column(name = "ativo")
 	private boolean ativo = true;
@@ -57,6 +58,7 @@ public class Pergunta {
 		this.enunciado = enunciado;
 	}
 	
+	@JsonIgnore
 	public Palestra getPalestra() {
 		return palestra;
 	}
@@ -79,7 +81,6 @@ public class Pergunta {
 
     public void adicionarAlternativa(Alternativa alternativa) {
         alternativas.add(alternativa);
-        alternativa.setPergunta(this);
     }
     
 }

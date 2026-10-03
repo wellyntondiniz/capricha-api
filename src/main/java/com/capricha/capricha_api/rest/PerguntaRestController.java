@@ -32,7 +32,7 @@ public class PerguntaRestController {
 	}
 	
 	@PostMapping
-	public Pergunta salvar(@Valid @RequestBody Pergunta pergunta) {
+	public Pergunta salvar(@Valid @RequestBody Pergunta pergunta) {	
 		return perguntaService.salvar(pergunta);
 	}
 	

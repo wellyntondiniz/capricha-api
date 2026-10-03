@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/palestras")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class PalestraController {
 
     private final PalestraService palestraService;
@@ -28,7 +28,7 @@ public class PalestraController {
         return palestraService.listar();
     }
     
-    @PostMapping("/{id}/perguntas")
+    @PostMapping("/{id}/add-pergunta")
     public Pergunta adicionarPergunta(@PathVariable Long id, @RequestBody Pergunta pergunta) {
         return palestraService.adicionarPergunta(id, pergunta);
     }

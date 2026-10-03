@@ -36,7 +36,7 @@ public class Palestra {
         cascade = CascadeType.ALL,
         orphanRemoval = true
     )
-    private List<Pergunta> perguntas = new ArrayList<>();
+    private List<Pergunta> perguntas;
 
     public Palestra() {
     }
