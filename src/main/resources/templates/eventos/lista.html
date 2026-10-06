@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Eventos - Capricha</title>
+	<link rel="stylesheet" th:href="@{/css/eventos.css}">
+</head>
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>Eventos</h1>
+			<a class="botao botao-primario" th:href="@{/eventos/novo}">+ Novo evento</a>
+		</div>
+
+		<table class="tabela" th:if="${not #lists.isEmpty(eventos)}">
+			<thead>
+				<tr>
+					<th class="coluna-avatar"></th>
+					<th>Nome</th>
+					<th>Descrição</th>
+					<th>Início</th>
+					<th>Término</th>
+					<th class="coluna-acoes">Ações</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="evento : ${eventos}">
+					<td class="coluna-avatar">
+						<img
+							th:if="${evento.fotoPerfil}"
+							th:src="@{/imagens/eventos/{arquivo}(arquivo=${evento.fotoPerfil})}"
+							class="avatar-evento"
+							alt="">
+						<div th:unless="${evento.fotoPerfil}" class="avatar-evento avatar-vazio"></div>
+					</td>
+					<td th:text="${evento.nome}"></td>
+					<td th:text="${evento.descricao}"></td>
+					<td th:text="${evento.dataInicioFormatada}"></td>
+					<td th:text="${evento.dataTerminoFormatada}"></td>
+					<td class="coluna-acoes">
+						<div class="acoes">
+							<a class="link-visualizar" th:href="@{/eventos/{id}(id=${evento.id})}">Visualizar</a>
+							<a class="link-editar" th:href="@{/eventos/{id}/editar(id=${evento.id})}">Editar</a>
+							<form
+								class="form-excluir"
+								th:action="@{/eventos/{id}/desativar(id=${evento.id})}"
+								method="post"
+								onsubmit="return confirm('Excluir este evento?');">
+								<button type="submit" class="link-excluir">Excluir</button>
+							</form>
+						</div>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<p class="vazio" th:if="${#lists.isEmpty(eventos)}">
+			Nenhum evento cadastrado ainda. Clique em &quot;+ Novo evento&quot; para começar.
+		</p>
+	</div>
+</body>
+</html>

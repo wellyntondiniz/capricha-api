@@ -1,5 +1,8 @@
 package com.capricha.capricha_api.model;
 
+import com.capricha.capricha_api.entidade.Evento;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -23,6 +26,9 @@ public class Palestra {
     private String horario;
 
     private String evento;
+
+    @Column(name = "imagem")
+    private String imagem;
 
     public Palestra() {
     }
@@ -81,5 +87,13 @@ public class Palestra {
 
     public void setEvento(String evento) {
         this.evento = evento;
+    }
+
+    public String getImagem() {
+        return imagem;
+    }
+
+    public void setImagem(String imagem) {
+        this.imagem = imagem;
     }
 }
