@@ -1,9 +1,13 @@
 package com.capricha.capricha_api.model;
 
+import com.capricha.capricha_api.entidade.Evento;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 public class Palestra {
@@ -22,7 +26,9 @@ public class Palestra {
 
     private String horario;
 
-    private String evento;
+    @ManyToOne
+    @JoinColumn(name = "evento_id")
+    private Evento evento;
 
     public Palestra() {
     }
@@ -75,11 +81,11 @@ public class Palestra {
         this.horario = horario;
     }
 
-    public String getEvento() {
+    public Evento getEvento() {
         return evento;
     }
 
-    public void setEvento(String evento) {
+    public void setEvento(Evento evento) {
         this.evento = evento;
     }
 }
