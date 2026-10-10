@@ -104,6 +104,7 @@ public class EventoWebController {
 			return "eventos/formulario";
 		}
 		try {
+
 			evento.setFotoPerfil(armazenamentoArquivoService.salvar(arquivoFotoPerfil));
 			evento.setBanner(armazenamentoArquivoService.salvar(arquivoBanner));
 			evento.setParticipantes(dividirLinhas(participantesTexto));
@@ -121,7 +122,6 @@ public class EventoWebController {
 		eventoService.desativarEvento(id);
 		return "redirect:/eventos";
 	}
-
 
 	private List<String> dividirLinhas(String texto) {
 		if (texto == null || texto.isBlank()) {

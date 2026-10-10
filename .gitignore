@@ -34,3 +34,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Imagens de evento enviadas pelo usuário (não versionar) ###
+/uploads/

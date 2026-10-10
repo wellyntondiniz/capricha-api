@@ -93,7 +93,6 @@ public class EventoService {
 		}
 	}
 
-
 	private void validarDataInicioNaoPassada(Evento evento) {
 		LocalDateTime agora = LocalDateTime.now(FUSO).truncatedTo(ChronoUnit.MINUTES);
 
