@@ -49,5 +49,8 @@ public class PalestraService {
     	}
     	
     	return palestra.getPerguntas();
+
+    public List<Palestra> listarPorEvento(Integer eventoId) {
+        return palestraRepository.findByEvento(String.valueOf(eventoId));
     }
 }

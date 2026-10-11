@@ -1,6 +1,5 @@
 package com.capricha.capricha_api.service;
 
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -8,18 +7,18 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
 public final class Senhas {
+    /** Início de todo hash gerado por esta classe. */
+    public static final String PREFIXO = "pbkdf2$";
     private Senhas() {}
     public static String proteger(String senha) {
         byte[] salt = new byte[16];
         new SecureRandom().nextBytes(salt);
-        return "pbkdf2$600000$" + Base64.getEncoder().encodeToString(salt) + "$"
+        return PREFIXO + "600000$" + Base64.getEncoder().encodeToString(salt) + "$"
                 + Base64.getEncoder().encodeToString(derivar(senha, salt, 600000));
     }
     public static boolean confere(String senha, String armazenada) {
-        if (armazenada == null) return false;
-        // Compatibilidade com contas antigas da CA-01; novas senhas sempre usam hash.
-        if (!armazenada.startsWith("pbkdf2$")) return MessageDigest.isEqual(
-                senha.getBytes(StandardCharsets.UTF_8), armazenada.getBytes(StandardCharsets.UTF_8));
+        // Só aceita hash: senhas antigas em texto puro são convertidas ao iniciar a API (MigracaoSenhasTextoPuro).
+        if (senha == null || armazenada == null || !armazenada.startsWith(PREFIXO)) return false;
         try {
             String[] partes = armazenada.split("\\$");
             return MessageDigest.isEqual(Base64.getDecoder().decode(partes[3]),

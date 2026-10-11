@@ -6,6 +6,9 @@ import java.util.List;
 import com.capricha.capricha_api.entidade.Pergunta;
 
 import jakarta.persistence.CascadeType;
+import com.capricha.capricha_api.entidade.Evento;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -37,6 +40,9 @@ public class Palestra {
         orphanRemoval = true
     )
     private List<Pergunta> perguntas;
+
+    @Column(name = "imagem")
+    private String imagem;
 
     public Palestra() {
     }
@@ -104,5 +110,12 @@ public class Palestra {
     public void adicionarPergunta(Pergunta pergunta) {
     	perguntas.add(pergunta);
     	pergunta.setPalestra(this);
+
+    public String getImagem() {
+        return imagem;
+    }
+
+    public void setImagem(String imagem) {
+        this.imagem = imagem;
     }
 }
