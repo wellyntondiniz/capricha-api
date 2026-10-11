@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.capricha.capricha_api.entidade.Evento;
+import com.capricha.capricha_api.model.Palestra;
 import com.capricha.capricha_api.service.EventoService;
+import com.capricha.capricha_api.service.PalestraService;
 
 import jakarta.validation.Valid;
 
@@ -25,6 +27,9 @@ public class EventoRestController {
 	@Autowired
 	EventoService eventoService;
 
+	@Autowired
+	PalestraService palestraService;
+
 	@GetMapping
 	public List<Evento> getEventos() {
 		return eventoService.getEventos();
@@ -33,6 +38,11 @@ public class EventoRestController {
 	@GetMapping("/{id}")
 	public Evento getEventoById(@PathVariable Integer id) {
 		return eventoService.getEventoById(id);
+	}
+
+	@GetMapping("/{id}/palestras")
+	public List<Palestra> getPalestrasDoEvento(@PathVariable Integer id) {
+		return palestraService.listarPorEvento(id);
 	}
 
 	@PostMapping

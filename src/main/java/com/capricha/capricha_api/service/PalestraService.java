@@ -22,4 +22,8 @@ public class PalestraService {
     public List<Palestra> listar() {
         return palestraRepository.findAll();
     }
+
+    public List<Palestra> listarPorEvento(Integer eventoId) {
+        return palestraRepository.findByEvento(String.valueOf(eventoId));
+    }
 }
