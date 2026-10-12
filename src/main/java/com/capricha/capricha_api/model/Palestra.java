@@ -3,16 +3,17 @@ package com.capricha.capricha_api.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.capricha.capricha_api.entidade.Evento;
 import com.capricha.capricha_api.entidade.Pergunta;
 
 import jakarta.persistence.CascadeType;
-import com.capricha.capricha_api.entidade.Evento;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 
 @Entity
@@ -32,14 +33,16 @@ public class Palestra {
 
     private String horario;
 
-    private String evento;
-    
+    @ManyToOne
+    @JoinColumn(name = "evento_id")
+    private Evento evento;
+
     @OneToMany(
         mappedBy = "palestra",
         cascade = CascadeType.ALL,
         orphanRemoval = true
     )
-    private List<Pergunta> perguntas;
+    private List<Pergunta> perguntas = new ArrayList<>();
 
     @Column(name = "imagem")
     private String imagem;
@@ -95,21 +98,22 @@ public class Palestra {
         this.horario = horario;
     }
 
-    public String getEvento() {
+    public Evento getEvento() {
         return evento;
     }
 
-    public void setEvento(String evento) {
+    public void setEvento(Evento evento) {
         this.evento = evento;
     }
-    
+
     public List<Pergunta> getPerguntas() {
-    	return perguntas;
+        return perguntas;
     }
-    
+
     public void adicionarPergunta(Pergunta pergunta) {
-    	perguntas.add(pergunta);
-    	pergunta.setPalestra(this);
+        perguntas.add(pergunta);
+        pergunta.setPalestra(this);
+    }
 
     public String getImagem() {
         return imagem;

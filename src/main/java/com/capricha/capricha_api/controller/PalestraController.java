@@ -1,5 +1,6 @@
 package com.capricha.capricha_api.controller;
 
+import com.capricha.capricha_api.entidade.Evento;
 import com.capricha.capricha_api.entidade.Pergunta;
 import com.capricha.capricha_api.model.Palestra;
 import com.capricha.capricha_api.service.ArmazenamentoArquivoService;
@@ -40,7 +41,7 @@ public class PalestraController {
             @RequestParam("palestrante") String palestrante,
             @RequestParam("data") String data,
             @RequestParam("horario") String horario,
-            @RequestParam("evento") String evento,
+            @RequestParam("evento") Integer eventoId,
             @RequestParam(value = "imagem", required = false) MultipartFile imagem
     ) {
 
@@ -51,6 +52,8 @@ public class PalestraController {
         palestra.setPalestrante(palestrante);
         palestra.setData(data);
         palestra.setHorario(horario);
+        Evento evento = new Evento();
+        evento.setId(eventoId);
         palestra.setEvento(evento);
 
  

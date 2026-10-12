@@ -150,6 +150,7 @@ public class Evento {
 		this.atividades = atividades;
 	}
 
+
 	@JsonIgnore
 	public String getDataInicioFormatada() {
 		return dataInicio != null ? dataInicio.format(FORMATO_EXIBICAO) : "";

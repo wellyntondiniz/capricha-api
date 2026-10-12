@@ -28,7 +28,6 @@ public class ArmazenamentoArquivoService {
 		}
 	}
 
-
 	public String salvar(MultipartFile arquivo) {
 		if (arquivo == null || arquivo.isEmpty()) {
 			return null;

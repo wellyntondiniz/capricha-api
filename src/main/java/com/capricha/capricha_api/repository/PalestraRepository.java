@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface PalestraRepository extends JpaRepository<Palestra, Long> {
 
-    List<Palestra> findByEvento(String evento);
+    List<Palestra> findByEventoId(Integer eventoId);
 
+    boolean existsByPalestranteIgnoreCaseAndDataAndHorario(String palestrante, String data, String horario);
 }
