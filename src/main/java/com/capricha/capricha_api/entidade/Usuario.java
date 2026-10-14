@@ -33,6 +33,9 @@ public class Usuario {
 	@Column(name = "ativo")
 	private boolean ativo = true;
 	
+	@Column(name = "perfil")
+	private String perfil = "PARTICIPANTE";
+	
 	public Integer getId() {
 		return id;
 	}
@@ -71,5 +74,13 @@ public class Usuario {
 	
 	public void setAtivo(boolean ativo) {
 		this.ativo = ativo;
+	}
+	
+	public String getPerfil() {
+		return perfil;
+	}
+	
+	public void setPerfil(String perfil) {
+		this.perfil = perfil;
 	}
 }
