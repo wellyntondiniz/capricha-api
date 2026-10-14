@@ -48,6 +48,21 @@ public class ArmazenamentoArquivoService {
 		return nomeArquivo;
 	}
 
+	public void remover(String nomeArquivo) {
+		if (nomeArquivo == null || nomeArquivo.isBlank()) {
+			return;
+		}
+		Path alvo = diretorioBase.resolve(nomeArquivo).normalize();
+		if (!alvo.startsWith(diretorioBase) || alvo.equals(diretorioBase)) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(alvo);
+		} catch (IOException e) {
+			throw new IllegalStateException("Não foi possível apagar o arquivo: " + nomeArquivo, e);
+		}
+	}
+
 	private String extrairExtensao(String nomeOriginal) {
 		if (nomeOriginal == null || !nomeOriginal.contains(".")) {
 			return "";
