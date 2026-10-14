@@ -36,6 +36,7 @@ public record CadastroUsuarioRequest(
 		usuario.setEmail(email);
 		usuario.setSenha(senha);
 		usuario.setAtivo(true);
+		usuario.setPerfil("PARTICIPANTE");
 		return usuario;
 	}
 }
