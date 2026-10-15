@@ -27,7 +27,7 @@ public class ParticipacaoService {
 	}
 	
 	public List<Participacao> getParticipacoesByEvento(Integer eventoId) {
-		return participacaoRepository.findByEventoIdAndUsuarioAtivoTrue(eventoId);
+		return participacaoRepository.findByEventoIdAndUsuarioAtivoTrueOrderByScoreDescUsuarioNomeAsc(eventoId);
 	}
 	
 	public Participacao getParticipacaoById(Integer id) {

@@ -18,5 +18,8 @@ public interface ParticipacaoRepository extends JpaRepository<Participacao, Inte
 
 	public List<Participacao> findByEventoIdAndUsuarioAtivoTrue(Integer eventoId);
 	
+	// Ranking do evento: maior pontuação primeiro; empate resolvido pelo nome.
+	public List<Participacao> findByEventoIdAndUsuarioAtivoTrueOrderByScoreDescUsuarioNomeAsc(Integer eventoId);
+	
 	public Participacao findByUsuarioIdAndEventoId(Integer usuarioId, Integer eventoId);
 }
