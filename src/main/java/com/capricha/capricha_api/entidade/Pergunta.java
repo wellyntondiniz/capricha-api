@@ -58,7 +58,6 @@ public class Pergunta {
 		this.enunciado = enunciado;
 	}
 	
-	@JsonIgnore
 	public Palestra getPalestra() {
 		return palestra;
 	}
