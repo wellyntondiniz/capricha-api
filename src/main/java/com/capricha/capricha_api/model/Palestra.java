@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.capricha.capricha_api.entidade.Evento;
 import com.capricha.capricha_api.entidade.Pergunta;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -42,6 +43,7 @@ public class Palestra {
         cascade = CascadeType.ALL,
         orphanRemoval = true
     )
+    @JsonIgnore
     private List<Pergunta> perguntas = new ArrayList<>();
 
     @Column(name = "imagem")
