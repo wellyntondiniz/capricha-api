@@ -54,10 +54,54 @@ public class UsuarioService {
 	
 	private void validarCadastro(Usuario usuario) {
 	    if (usuarioRepository.existsByEmail(usuario.getEmail())) {
-	    	throw new ResponseStatusException(
-	    	        HttpStatus.CONFLICT,
-	    	        "Email já cadastrado!"
-	    	    );
+	        throw new ResponseStatusException(
+	            HttpStatus.CONFLICT,
+	            "Email já cadastrado!"
+	        );
+	    }
+
+	    String senha = usuario.getSenha();
+
+	    if (senha == null || senha.length() < 8) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve ter pelo menos 8 caracteres."
+	        );
+	    }
+	    
+	    if (senha.length() > 128) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve ter pelo no máximo 128 caracteres."
+	        );
+	    }
+
+	    if (!senha.equals(senha.trim())) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha não pode começar ou terminar com espaço."
+	        );
+	    }
+
+	    if (!senha.matches(".*[A-Z].*")) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve conter pelo menos uma letra maiúscula."
+	        );
+	    }
+
+	    if (!senha.matches(".*[0-9].*")) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve conter pelo menos um número."
+	        );
+	    }
+
+	    if (!senha.matches(".*[^a-zA-Z0-9].*")) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve conter pelo menos um caractere especial."
+	        );
 	    }
 	}
 }
