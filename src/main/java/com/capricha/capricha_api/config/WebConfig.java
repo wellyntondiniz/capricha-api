@@ -17,7 +17,7 @@ public class WebConfig implements WebMvcConfigurer {
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
 		String caminhoAbsoluto = Paths.get(diretorioUpload).toAbsolutePath().normalize().toUri().toString();
-		registry.addResourceHandler("/imagens/eventos/**")
+		registry.addResourceHandler("/imagens/eventos/**", "/imagens/usuarios/**", "/imagens/**")
 				.addResourceLocations(caminhoAbsoluto);
 	}
 }

@@ -36,6 +36,9 @@ public class Usuario {
 	@Column(name = "perfil")
 	private String perfil = "PARTICIPANTE";
 	
+	@Column(name = "foto")
+	private String foto;
+	
 	public Integer getId() {
 		return id;
 	}
@@ -82,5 +85,13 @@ public class Usuario {
 	
 	public void setPerfil(String perfil) {
 		this.perfil = perfil;
+	}
+	
+	public String getFoto() {
+		return foto;
+	}
+	
+	public void setFoto(String foto) {
+		this.foto = foto;
 	}
 }

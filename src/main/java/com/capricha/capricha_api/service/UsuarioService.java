@@ -16,14 +16,46 @@ public class UsuarioService {
 	
 	@Autowired
 	private UsuarioRepository usuarioRepository;
+
+	@Autowired
+	private ArmazenamentoArquivoService armazenamentoArquivoService;
 	
 	public List<Usuario> getUsuarios() {
 		return usuarioRepository.findAllByAtivo(true);
 	}
 	
 	public Usuario getUsuarioById(Integer id) {
-		Usuario usuario = usuarioRepository.findById(id).get();
-		return usuario;
+		return usuarioRepository.findById(id).orElseThrow(
+				() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado.")
+		);
+	}
+
+	public Usuario atualizarFoto(Integer id, org.springframework.web.multipart.MultipartFile foto) {
+		Usuario usuario = getUsuarioById(id);
+
+		if (usuario.getFoto() != null && !usuario.getFoto().isBlank()) {
+			armazenamentoArquivoService.remover(usuario.getFoto());
+		}
+
+		if (foto != null && !foto.isEmpty()) {
+			String nomeArquivo = armazenamentoArquivoService.salvar(foto);
+			usuario.setFoto(nomeArquivo);
+		} else {
+			usuario.setFoto(null);
+		}
+
+		return salvar(usuario);
+	}
+
+	public Usuario removerFoto(Integer id) {
+		Usuario usuario = getUsuarioById(id);
+
+		if (usuario.getFoto() != null && !usuario.getFoto().isBlank()) {
+			armazenamentoArquivoService.remover(usuario.getFoto());
+		}
+
+		usuario.setFoto(null);
+		return salvar(usuario);
 	}
 	
 	public Usuario cadastrarUsuario(Usuario usuario) {
