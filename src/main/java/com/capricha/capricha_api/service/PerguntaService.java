@@ -15,7 +15,7 @@ public class PerguntaService {
 	private PerguntaRepository perguntaRepository;
 	
 	public List<Pergunta> getPerguntas() {
-		return perguntaRepository.findAll();
+		return perguntaRepository.findAllByAtivo(true);
 	}
 	
 	public Pergunta getPerguntaById(Integer id) {
@@ -31,5 +31,11 @@ public class PerguntaService {
 		Pergunta pergunta = perguntaRepository.findById(id).get();
 		pergunta.setEnunciado(dados.getEnunciado());
 		return perguntaRepository.save(pergunta);
+	}
+	
+	public Pergunta deletar(Integer id) {
+		Pergunta evento = getPerguntaById(id);
+		evento.setAtivo(false);
+		return perguntaRepository.save(evento);
 	}
 }
