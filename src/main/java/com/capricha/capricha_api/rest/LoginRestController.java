@@ -7,6 +7,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.capricha.capricha_api.service.UsuarioService;
+import com.capricha.capricha_api.service.SessaoUsuarioService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.HttpStatus;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -19,15 +24,29 @@ import jakarta.validation.constraints.Size;
 public class LoginRestController {
 
 	private final UsuarioService usuarioService;
+	private final SessaoUsuarioService sessoes;
 
-	public LoginRestController(UsuarioService usuarioService) {
+	public LoginRestController(UsuarioService usuarioService, SessaoUsuarioService sessoes) {
 		this.usuarioService = usuarioService;
+		this.sessoes = sessoes;
 	}
 
 	// Confere a senha informada com o hash armazenado. Responde 401 se e-mail ou senha estiverem errados.
 	@PostMapping("/login")
-	public UsuarioResponse login(@Valid @RequestBody LoginRequest login) {
-		return UsuarioResponse.de(usuarioService.autenticar(login.email(), login.senha()));
+	public LoginResponse login(@Valid @RequestBody LoginRequest login) {
+		var usuario = usuarioService.autenticar(login.email(), login.senha());
+		return LoginResponse.de(usuario, sessoes.emitir(usuario));
+	}
+
+	@GetMapping("/sessao")
+	public UsuarioResponse sessao(@RequestHeader(value = "Authorization", required = false) String authorization) {
+		return UsuarioResponse.de(sessoes.autenticar(authorization));
+	}
+
+	@PostMapping("/logout")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
+		sessoes.encerrar(authorization);
 	}
 
 	public record LoginRequest(

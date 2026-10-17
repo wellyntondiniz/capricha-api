@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.capricha.capricha_api.entidade.Usuario;
 import com.capricha.capricha_api.service.Senhas;
 import com.capricha.capricha_api.service.UsuarioService;
+import com.capricha.capricha_api.service.SessaoUsuarioService;
 
 class LoginRestControllerTest {
 
@@ -27,7 +28,10 @@ class LoginRestControllerTest {
 	@BeforeEach
 	void configurar() {
 		usuarioService = mock(UsuarioService.class);
-		mockMvc = MockMvcBuilders.standaloneSetup(new LoginRestController(usuarioService))
+		var sessoes = mock(SessaoUsuarioService.class);
+		when(sessoes.emitir(org.mockito.ArgumentMatchers.any())).thenReturn(
+				new SessaoUsuarioService.Credencial("credencial-de-teste", java.time.Instant.now().plusSeconds(3600)));
+		mockMvc = MockMvcBuilders.standaloneSetup(new LoginRestController(usuarioService, sessoes))
 				.setControllerAdvice(new ErrosController())
 				.build();
 	}
@@ -45,6 +49,7 @@ class LoginRestControllerTest {
 				.content("{\"email\":\"joao@exemplo.com\",\"senha\":\"senha1234\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.email").value("joao@exemplo.com"))
+				.andExpect(jsonPath("$.token").value("credencial-de-teste"))
 				.andExpect(jsonPath("$.senha").doesNotExist());
 	}
 
