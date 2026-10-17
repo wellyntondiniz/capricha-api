@@ -49,6 +49,14 @@ public class Evento {
 	@Column(name = "ativo")
 	private boolean ativo = true;
 
+	// Criado sob bloqueio ao gerar o QR; nunca exposto nos endpoints comuns de eventos.
+	@Column(name = "check_in_token", length = 36)
+	private String checkInToken;
+
+	@JsonIgnore
+	public String getCheckInToken() { return checkInToken; }
+	public void setCheckInToken(String token) { this.checkInToken = token; }
+
 
 	@Column(name = "foto_perfil")
 	private String fotoPerfil;

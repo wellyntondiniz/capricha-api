@@ -27,6 +27,14 @@ public class Participacao {
 	
 	@Column(name = "score")
 	private Integer score;
+
+	// Inscrição existente não implica presença. Nulo preserva os registros anteriores.
+	@Column(name = "checked_in_at")
+	private java.time.Instant checkedInAt;
+
+	@com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+	public java.time.Instant getCheckedInAt() { return checkedInAt; }
+	public void setCheckedInAt(java.time.Instant checkedInAt) { this.checkedInAt = checkedInAt; }
 	
 	public void setId(Integer id) {
 		this.id = id;

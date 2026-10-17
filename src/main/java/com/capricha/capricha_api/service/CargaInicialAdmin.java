@@ -25,10 +25,10 @@ public class CargaInicialAdmin implements ApplicationRunner {
 	@Value("${app.admin.nome:Administrador}")
 	private String adminNome;
 
-	@Value("${app.admin.email:admin@capricha.com}")
+	@Value("${app.admin.email:}")
 	private String adminEmail;
 
-	@Value("${app.admin.senha:Admin@123}")
+	@Value("${app.admin.senha:}")
 	private String adminSenha;
 
 	public CargaInicialAdmin(UsuarioRepository usuarioRepository) {
@@ -38,8 +38,8 @@ public class CargaInicialAdmin implements ApplicationRunner {
 	@Override
 	@Transactional
 	public void run(ApplicationArguments args) {
-		if (adminEmail == null || adminEmail.isBlank()) {
-			log.info("Carga inicial de administrador desativada (email não configurado).");
+		if (adminEmail == null || adminEmail.isBlank() || adminSenha == null || adminSenha.isBlank()) {
+			log.info("Carga inicial de administrador desativada (configure ADMIN_EMAIL e ADMIN_SENHA).");
 			return;
 		}
 
