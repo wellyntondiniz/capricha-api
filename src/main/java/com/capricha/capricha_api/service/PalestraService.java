@@ -47,6 +47,11 @@ public class PalestraService {
         palestra.setEvento(evento);
 
         validarNaoPassou(palestra);
+        if (palestra.getDataTermino() != null && evento.getDataTermino() != null
+                && palestra.getDataTermino().isAfter(evento.getDataTermino())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O término da palestra não pode ultrapassar o término do evento.");
+        }
 
         if (palestraRepository.existsByPalestranteIgnoreCaseAndDataAndHorario(
                 palestra.getPalestrante().trim(), palestra.getData().trim(), palestra.getHorario().trim())) {
@@ -92,6 +97,10 @@ public class PalestraService {
         try {
             LocalDateTime dataHora = LocalDateTime.parse(
                     palestra.getData().trim() + " " + palestra.getHorario().trim(), FORMATO);
+            if (palestra.getDataTermino() != null && !palestra.getDataTermino().isAfter(dataHora)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "O término deve ser posterior ao início da palestra.");
+            }
             LocalDateTime agora = LocalDateTime.now(FUSO).truncatedTo(ChronoUnit.MINUTES);
 
             if (dataHora.isBefore(agora)) {

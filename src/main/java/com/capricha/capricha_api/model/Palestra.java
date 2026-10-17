@@ -34,6 +34,19 @@ public class Palestra {
 
     private String horario;
 
+    @Column(name = "data_termino")
+    private java.time.LocalDateTime dataTermino;
+
+    public java.time.LocalDateTime getDataTermino() { return dataTermino; }
+    public void setDataTermino(java.time.LocalDateTime termino) { this.dataTermino = termino; }
+
+    @Column(name = "check_in_token", length = 36)
+    private String checkInToken;
+
+    @JsonIgnore
+    public String getCheckInToken() { return checkInToken; }
+    public void setCheckInToken(String token) { this.checkInToken = token; }
+
     @ManyToOne
     @JoinColumn(name = "evento_id")
     private Evento evento;

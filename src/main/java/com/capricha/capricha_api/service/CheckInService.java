@@ -1,22 +1,16 @@
 package com.capricha.capricha_api.service;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.*;
-import javax.imageio.ImageIO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.capricha.capricha_api.entidade.*;
 import com.capricha.capricha_api.repository.*;
 import com.capricha.capricha_api.rest.CheckInException;
-import com.google.zxing.*;
-import com.google.zxing.common.BitMatrix;
+import com.capricha.capricha_api.model.Palestra;
 
 @Service
 public class CheckInService {
@@ -24,16 +18,28 @@ public class CheckInService {
     private static final ZoneId FUSO = ZoneId.of("America/Cuiaba");
     private final EventoRepository eventos;
     private final ParticipacaoRepository participacoes;
+    private final CheckInQrService qr;
+    private final PalestraRepository palestras;
+    private final PresencaPalestraRepository presencasPalestra;
 
-    public CheckInService(EventoRepository eventos, ParticipacaoRepository participacoes) {
+    public CheckInService(EventoRepository eventos, ParticipacaoRepository participacoes, CheckInQrService qr,
+            PalestraRepository palestras, PresencaPalestraRepository presencasPalestra) {
         this.eventos = eventos;
         this.participacoes = participacoes;
+        this.qr = qr;
+        this.palestras = palestras;
+        this.presencasPalestra = presencasPalestra;
     }
 
     public record EventoCheckIn(Integer id, String nome, String descricao, OffsetDateTime dataInicio,
             OffsetDateTime dataTermino, String status, boolean canCheckIn, boolean hasCheckedIn, Instant checkedInAt) {}
     public record Registro(Integer id, Integer eventId, String eventName, Instant checkedInAt, String message) {}
     public record QrCode(Integer eventId, String eventName, String payload, String imageData) {}
+    public record QrCodePalestra(Long lectureId, String lectureName, String payload, String imageData) {}
+    public record PalestraCheckIn(Long id, String nome, String descricao, OffsetDateTime dataInicio,
+            OffsetDateTime dataTermino, String status, boolean canCheckIn, boolean hasCheckedIn,
+            Instant checkedInAt, Integer eventoId, String palestrante) {}
+    public record RegistroPalestra(Long id, Long lectureId, String lectureName, Instant checkedInAt, String message) {}
 
     @Transactional(readOnly = true)
     public List<EventoCheckIn> listar(Usuario usuario) {
@@ -84,10 +90,7 @@ public class CheckInService {
 
     @Transactional
     public QrCode gerarQr(Integer id, Usuario usuario) {
-        String perfil = usuario.getPerfil();
-        if (!"ADMIN".equalsIgnoreCase(perfil) && !"ADMINISTRADOR".equalsIgnoreCase(perfil)) {
-            throw new CheckInException(403, "FORBIDDEN", "Somente administradores podem gerar o QR Code.");
-        }
+        qr.exigirAdministrador(usuario);
         Evento evento = eventos.buscarParaCheckIn(id).orElseThrow(this::naoEncontrado);
         if (!evento.getAtivo()) {
             throw new CheckInException(409, "CHECK_IN_NOT_AVAILABLE", "Evento desativado.");
@@ -98,7 +101,7 @@ public class CheckInService {
         }
         String payload = "{\"type\":\"EVENT_CHECKIN\",\"eventId\":" + evento.getId()
                 + ",\"token\":\"" + evento.getCheckInToken() + "\"}";
-        return new QrCode(id, evento.getNome(), payload, imagemQr(payload));
+        return new QrCode(id, evento.getNome(), payload, qr.imagem(payload));
     }
 
     private EventoCheckIn resposta(Evento e, Instant presenca, LocalDateTime agora) {
@@ -109,8 +112,7 @@ public class CheckInService {
     }
 
     private boolean disponivel(Evento e, LocalDateTime agora) {
-        return e.getAtivo() && e.getDataInicio() != null && !agora.isBefore(e.getDataInicio())
-                && (e.getDataTermino() == null || agora.isBefore(e.getDataTermino()));
+        return CheckInDisponibilidade.disponivel(e.getAtivo(), e.getDataInicio(), e.getDataTermino(), agora);
     }
 
     private OffsetDateTime comFuso(LocalDateTime data) {
@@ -118,29 +120,111 @@ public class CheckInService {
     }
 
     private void validarToken(Evento evento, String token) {
-        if (evento.getCheckInToken() == null || token == null || !MessageDigest.isEqual(
-                evento.getCheckInToken().getBytes(StandardCharsets.UTF_8), token.getBytes(StandardCharsets.UTF_8))) {
-            throw new CheckInException(400, "INVALID_EVENT_TOKEN", "QR Code inválido para este evento.");
-        }
+        qr.validarToken(evento.getCheckInToken(), token, "INVALID_EVENT_TOKEN", "QR Code inválido para este evento.");
     }
 
     private CheckInException naoEncontrado() {
         return new CheckInException(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
     }
 
-    private String imagemQr(String payload) {
+    @Transactional
+    public QrCodePalestra gerarQrPalestra(Long id, Usuario usuario) {
+        qr.exigirAdministrador(usuario);
+        Palestra palestra = palestras.buscarParaCheckIn(id).orElseThrow(() ->
+                new CheckInException(404, "LECTURE_NOT_FOUND", "Palestra não encontrada."));
+        if (palestra.getEvento() == null || !palestra.getEvento().getAtivo()) {
+            throw new CheckInException(409, "CHECK_IN_NOT_AVAILABLE", "A palestra não possui um evento ativo.");
+        }
+        if (palestra.getCheckInToken() == null) {
+            palestra.setCheckInToken(UUID.randomUUID().toString());
+            palestras.save(palestra);
+        }
+        String payload = "{\"type\":\"LECTURE_CHECKIN\",\"lectureId\":" + palestra.getId()
+                + ",\"token\":\"" + palestra.getCheckInToken() + "\"}";
+        return new QrCodePalestra(id, palestra.getNome(), payload, qr.imagem(payload));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PalestraCheckIn> listarPalestras(Usuario usuario) {
+        Map<Long, Instant> presencas = new HashMap<>();
+        presencasPalestra.findByUsuarioId(usuario.getId()).forEach(p -> presencas.put(p.getPalestra().getId(), p.getCheckedInAt()));
+        LocalDateTime agora = LocalDateTime.now(FUSO);
+        return palestras.findByEventoAtivoTrue().stream()
+                .map(p -> resposta(p, presencas.get(p.getId()), agora)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PalestraCheckIn identificarPalestra(Long id, String token, Usuario usuario) {
+        Palestra palestra = palestras.findById(id).orElseThrow(this::palestraNaoEncontrada);
+        validarToken(palestra, token);
+        Instant presenca = presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), id)
+                .map(PresencaPalestra::getCheckedInAt).orElse(null);
+        return resposta(palestra, presenca, LocalDateTime.now(FUSO));
+    }
+
+    @Transactional
+    public RegistroPalestra registrarPalestra(Long id, String token, Usuario usuario) {
+        Palestra palestra = palestras.buscarParaCheckIn(id).orElseThrow(this::palestraNaoEncontrada);
+        validarToken(palestra, token);
+        if (presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), id).isPresent()) {
+            throw presencaPalestraDuplicada();
+        }
+        LocalDateTime inicio = inicioPalestra(palestra);
+        if (!CheckInDisponibilidade.disponivel(palestraAtiva(palestra), inicio,
+                palestra.getDataTermino(), LocalDateTime.now(FUSO))) {
+            throw new CheckInException(409, "CHECK_IN_NOT_AVAILABLE", "Check-in não disponível para esta palestra neste momento.");
+        }
+        PresencaPalestra presenca;
         try {
-            BitMatrix matrix = new MultiFormatWriter().encode(payload, BarcodeFormat.QR_CODE, 360, 360,
-                    Map.of(EncodeHintType.MARGIN, 1));
-            BufferedImage imagem = new BufferedImage(360, 360, BufferedImage.TYPE_INT_RGB);
-            for (int x = 0; x < 360; x++) {
-                for (int y = 0; y < 360; y++) imagem.setRGB(x, y, matrix.get(x, y) ? 0x000000 : 0xFFFFFF);
+            presenca = presencasPalestra.saveAndFlush(new PresencaPalestra(usuario, palestra, Instant.now()));
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            String detalhe = e.getMostSpecificCause().getMessage();
+            if (detalhe != null && detalhe.toLowerCase(Locale.ROOT).contains("uk_presenca_usuario_palestra")) {
+                throw presencaPalestraDuplicada();
             }
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            ImageIO.write(imagem, "PNG", output);
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray());
-        } catch (Exception e) {
-            throw new CheckInException(500, "QR_GENERATION_ERROR", "Não foi possível gerar o QR Code.");
+            throw e;
+        }
+        return new RegistroPalestra(presenca.getId(), id, palestra.getNome(), presenca.getCheckedInAt(),
+                "Check-in realizado com sucesso!");
+    }
+
+    private PalestraCheckIn resposta(Palestra p, Instant presenca, LocalDateTime agora) {
+        LocalDateTime inicio = inicioPalestra(p);
+        LocalDateTime termino = p.getDataTermino();
+        boolean ativa = palestraAtiva(p);
+        String status = !ativa || (termino != null && !agora.isBefore(termino))
+                ? "finished" : inicio == null || agora.isBefore(inicio) ? "upcoming" : "available";
+        return new PalestraCheckIn(p.getId(), p.getNome(), p.getDescricao(), comFuso(inicio), comFuso(termino),
+                status, CheckInDisponibilidade.disponivel(ativa, inicio, termino, agora), presenca != null,
+                presenca, p.getEvento() == null ? null : p.getEvento().getId(), p.getPalestrante());
+    }
+
+    private LocalDateTime inicioPalestra(Palestra p) {
+        if (p.getData() == null || p.getHorario() == null) return null;
+        try {
+            var formato = java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm")
+                    .withResolverStyle(java.time.format.ResolverStyle.STRICT);
+            return LocalDateTime.parse(p.getData().trim() + " " + p.getHorario().trim(), formato);
+        } catch (java.time.format.DateTimeParseException e) {
+            return null; // Cadastro antigo inválido não derruba a lista nem libera check-in.
         }
     }
+
+    private boolean palestraAtiva(Palestra p) {
+        // Palestra não tem flag de estado própria; usa a situação do evento associado.
+        return p.getEvento() != null && p.getEvento().getAtivo();
+    }
+
+    private void validarToken(Palestra palestra, String token) {
+        qr.validarToken(palestra.getCheckInToken(), token, "INVALID_LECTURE_TOKEN", "QR Code inválido para esta palestra.");
+    }
+
+    private CheckInException palestraNaoEncontrada() {
+        return new CheckInException(404, "LECTURE_NOT_FOUND", "Palestra não encontrada.");
+    }
+
+    private CheckInException presencaPalestraDuplicada() {
+        return new CheckInException(409, "ALREADY_CHECKED_IN", "Você já realizou check-in nesta palestra.");
+    }
+
 }
