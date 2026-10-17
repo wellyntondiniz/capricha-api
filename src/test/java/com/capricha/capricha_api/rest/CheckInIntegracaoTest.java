@@ -28,6 +28,8 @@ class CheckInIntegracaoTest {
     @Autowired EventoRepository eventos;
     @Autowired ParticipacaoRepository participacoes;
     @Autowired SessaoUsuarioRepository sessoes;
+    @Autowired PalestraRepository palestras;
+    @Autowired PresencaPalestraRepository presencasPalestra;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
     private MockMvc mvc;
@@ -40,6 +42,8 @@ class CheckInIntegracaoTest {
     @BeforeEach
     void preparar() throws Exception {
         mvc = MockMvcBuilders.webAppContextSetup(context).build();
+        presencasPalestra.deleteAll();
+        palestras.deleteAll();
         sessoes.deleteAll();
         participacoes.deleteAll();
         eventos.deleteAll();
@@ -269,5 +273,237 @@ class CheckInIntegracaoTest {
             assertNotNull(salvo.getCheckedInAt());
             assertEquals(50, salvo.getScore());
         } finally { pool.shutdownNow(); }
+    }
+
+    private com.capricha.capricha_api.model.Palestra palestra() {
+        LocalDateTime agora = LocalDateTime.now(ZoneId.of("America/Cuiaba"));
+        return palestra(agora.minusMinutes(30), agora.plusMinutes(30));
+    }
+
+    private com.capricha.capricha_api.model.Palestra palestra(LocalDateTime inicio, LocalDateTime termino) {
+        var p = new com.capricha.capricha_api.model.Palestra();
+        p.setNome("Palestra de teste"); p.setPalestrante("Ana"); p.setEvento(evento);
+        p.setData(inicio.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        p.setHorario(inicio.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
+        p.setDataTermino(termino);
+        return palestras.saveAndFlush(p);
+    }
+
+    private String qrPalestra(Long id) throws Exception {
+        String body = mvc.perform(get("/palestras/" + id + "/qr-code").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return json.readTree(json.readTree(body).get("payload").asString()).get("token").asString();
+    }
+
+    private String pedidoPalestra(Long id, String qr) throws Exception {
+        return json.writeValueAsString(Map.of("type", "LECTURE_CHECKIN", "lectureId", id, "qrToken", qr,
+                "usuarioId", admin.getId()));
+    }
+
+    @Test
+    void administradorGeraQrDePalestraEstavelSemExporTokenNaListagemComum() throws Exception {
+        var p = palestra();
+        String endpoint = "/palestras/" + p.getId() + "/qr-code";
+        String a = mvc.perform(get(endpoint).header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.lectureId").value(p.getId()))
+                .andReturn().getResponse().getContentAsString();
+        String b = mvc.perform(get(endpoint).header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var payload = json.readTree(json.readTree(a).get("payload").asString());
+        assertEquals("LECTURE_CHECKIN", payload.get("type").asString());
+        assertEquals(p.getId().longValue(), payload.get("lectureId").asLong());
+        assertNull(payload.get("eventId"));
+        assertEquals(json.readTree(a).get("payload"), json.readTree(b).get("payload"));
+        assertEquals(palestras.findById(p.getId()).orElseThrow().getCheckInToken(), payload.get("token").asString());
+        byte[] png = Base64.getDecoder().decode(json.readTree(a).get("imageData").asString().split(",", 2)[1]);
+        var imagem = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(png));
+        var source = new com.google.zxing.RGBLuminanceSource(imagem.getWidth(), imagem.getHeight(),
+                imagem.getRGB(0, 0, imagem.getWidth(), imagem.getHeight(), null, 0, imagem.getWidth()));
+        var bitmap = new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(source));
+        assertEquals(json.readTree(a).get("payload").asString(), new com.google.zxing.MultiFormatReader().decode(bitmap).getText());
+        mvc.perform(get("/palestras")).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].checkInToken").doesNotExist());
+        assertEquals(0, presencasPalestra.count());
+        assertEquals(0, participacoes.count());
+    }
+
+    @Test
+    void qrDePalestraExigeSessaoEPerfilAdministrativoAtual() throws Exception {
+        var p = palestra();
+        String endpoint = "/palestras/" + p.getId() + "/qr-code";
+        mvc.perform(get(endpoint)).andExpect(status().isUnauthorized());
+        mvc.perform(get(endpoint).header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
+        admin.setPerfil("ADMINISTRADOR"); usuarios.saveAndFlush(admin);
+        mvc.perform(get(endpoint).header("Authorization", "Bearer " + adminToken)).andExpect(status().isOk());
+        admin.setPerfil("PARTICIPANTE"); usuarios.saveAndFlush(admin);
+        mvc.perform(get(endpoint).header("Authorization", "Bearer " + adminToken)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void qrDePalestraRecusaRecursoInexistenteEEventoDesativado() throws Exception {
+        mvc.perform(get("/palestras/9223372036854775807/qr-code").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("LECTURE_NOT_FOUND"));
+        var p = palestra();
+        evento.setAtivo(false); eventos.saveAndFlush(evento);
+        mvc.perform(get("/palestras/" + p.getId() + "/qr-code").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CHECK_IN_NOT_AVAILABLE"));
+    }
+
+    @Test
+    void identificaConfirmaERestauraPresencaDaPalestraParaUsuarioAutenticado() throws Exception {
+        var p = palestra();
+        String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in/validar").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value(p.getNome())).andExpect(jsonPath("$.palestrante").value("Ana"))
+                .andExpect(jsonPath("$.canCheckIn").value(true)).andExpect(jsonPath("$.hasCheckedIn").value(false))
+                .andExpect(jsonPath("$.eventoId").value(evento.getId()));
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lectureId").value(p.getId())).andExpect(jsonPath("$.checkedInAt").isString());
+        assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), p.getId()).isPresent());
+        assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(admin.getId(), p.getId()).isEmpty());
+        mvc.perform(get("/palestras/check-in").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].hasCheckedIn").value(true));
+        mvc.perform(get("/palestras/check-in").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].hasCheckedIn").value(false));
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ALREADY_CHECKED_IN"));
+    }
+
+    @Test
+    void rejeitaTipoIdOuTokenDeOutroRecursoNoBackend() throws Exception {
+        var a = palestra();
+        var b = palestra();
+        String tokenA = qrPalestra(a.getId());
+        String tokenB = qrPalestra(b.getId());
+        for (String body : List.of(
+                json.writeValueAsString(Map.of("type", "EVENT_CHECKIN", "lectureId", a.getId(), "qrToken", tokenA)),
+                pedidoPalestra(b.getId(), tokenA))) {
+            mvc.perform(post("/palestras/" + a.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_QR"));
+        }
+        for (String incorreto : List.of(tokenB, qrToken(), UUID.randomUUID().toString())) {
+            mvc.perform(post("/palestras/" + a.getId() + "/check-in/validar").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(a.getId(), incorreto)))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_LECTURE_TOKEN"));
+            mvc.perform(post("/palestras/" + a.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(a.getId(), incorreto)))
+                    .andExpect(status().isBadRequest());
+        }
+        assertEquals(0, presencasPalestra.count());
+    }
+
+    @Test
+    void recusaPalestraAntesDoInicioDepoisDoTerminoESemDataValida() throws Exception {
+        LocalDateTime agora = LocalDateTime.now(ZoneId.of("America/Cuiaba"));
+        var futura = palestra(agora.plusHours(1), agora.plusHours(2));
+        var encerrada = palestra(agora.minusHours(2), agora.minusHours(1));
+        var invalida = palestra();
+        invalida.setData("31/02/2026"); palestras.saveAndFlush(invalida);
+        for (var p : List.of(futura, encerrada, invalida)) {
+            String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
+            mvc.perform(post("/palestras/" + p.getId() + "/check-in/validar").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.canCheckIn").value(false));
+            mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CHECK_IN_NOT_AVAILABLE"));
+        }
+        assertEquals(0, presencasPalestra.count());
+    }
+
+    @Test
+    void palestraAntigaSemTerminoMantemDadosEEventoDesativadoImpedeNovaPresenca() throws Exception {
+        var p = palestra(LocalDateTime.now(ZoneId.of("America/Cuiaba")).minusMinutes(30), null);
+        String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());
+        assertNull(palestras.findById(p.getId()).orElseThrow().getDataTermino());
+        evento.setAtivo(false); eventos.saveAndFlush(evento);
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isConflict());
+    }
+
+    @Test
+    void presencasDeEventoEPalestrasSaoIndependentesEScorePermaneceIntacto() throws Exception {
+        Participacao inscricao = new Participacao();
+        inscricao.setUsuario(usuario); inscricao.setEvento(evento); inscricao.setScore(90);
+        Integer inscricaoId = participacoes.saveAndFlush(inscricao).getId();
+        var a = palestra(); var b = palestra();
+        mvc.perform(post("/palestras/" + a.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(a.getId(), qrPalestra(a.getId()))))
+                .andExpect(status().isCreated());
+        assertNull(participacoes.findById(inscricaoId).orElseThrow().getCheckedInAt());
+        assertEquals(90, participacoes.findById(inscricaoId).orElseThrow().getScore());
+        assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), b.getId()).isEmpty());
+        mvc.perform(post("/evento/" + evento.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedido(qrToken()))).andExpect(status().isCreated());
+        assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), b.getId()).isEmpty());
+        mvc.perform(post("/palestras/" + b.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(b.getId(), qrPalestra(b.getId()))))
+                .andExpect(status().isCreated());
+        assertEquals(2, presencasPalestra.count());
+        assertEquals(1, participacoes.count());
+        assertEquals(90, participacoes.findById(inscricaoId).orElseThrow().getScore());
+    }
+
+    @Test
+    void duasConfirmacoesConcorrentesDaPalestraGeramUmaPresencaEIndiceUnicoImpedeOutra() throws Exception {
+        var p = palestra();
+        String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch iniciar = new CountDownLatch(1);
+        Callable<Integer> confirmar = () -> {
+            iniciar.await();
+            return mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().getResponse().getStatus();
+        };
+        try {
+            var a = pool.submit(confirmar); var b = pool.submit(confirmar); iniciar.countDown();
+            var status = new ArrayList<>(List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS)));
+            Collections.sort(status); assertEquals(List.of(201, 409), status);
+            assertEquals(1, presencasPalestra.count());
+        } finally { pool.shutdownNow(); }
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+                presencasPalestra.saveAndFlush(new PresencaPalestra(usuario, p, Instant.now())));
+    }
+
+    @Test
+    void registroDePalestraExigeCredencialRealEPalestraExistente() throws Exception {
+        var p = palestra();
+        String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + "a".repeat(43))
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/palestras/9223372036854775807/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(Long.MAX_VALUE, UUID.randomUUID().toString())))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("LECTURE_NOT_FOUND"));
+        assertEquals(0, presencasPalestra.count());
+    }
+
+    @Test
+    void cadastroAceitaTerminoOpcionalERecusaFimAnteriorOuForaDoEvento() throws Exception {
+        var inicio = LocalDateTime.now(ZoneId.of("America/Cuiaba")).plusMinutes(10).withSecond(0).withNano(0);
+        var fim = inicio.plusMinutes(10);
+        String data = inicio.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String horario = inicio.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        mvc.perform(multipart("/palestras").param("nome", "Com término").param("descricao", "Descrição")
+                .param("palestrante", "Ana").param("data", data).param("horario", horario)
+                .param("evento", evento.getId().toString()).param("dataTermino", fim.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.dataTermino").isString());
+        mvc.perform(multipart("/palestras").param("nome", "Sem término").param("descricao", "Descrição")
+                .param("palestrante", "Bruno").param("data", data).param("horario", horario)
+                .param("evento", evento.getId().toString())).andExpect(status().isOk());
+        for (String termino : List.of(inicio.minusMinutes(1).toString(), inicio.plusDays(1).toString(), "inválido")) {
+            mvc.perform(multipart("/palestras").param("nome", "Inválida").param("descricao", "Descrição")
+                    .param("palestrante", "Carla").param("data", data).param("horario", horario)
+                    .param("evento", evento.getId().toString()).param("dataTermino", termino))
+                    .andExpect(status().isBadRequest());
+        }
+        assertEquals(2, palestras.count());
     }
 }
