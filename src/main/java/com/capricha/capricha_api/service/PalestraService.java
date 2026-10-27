@@ -32,31 +32,27 @@ public class PalestraService {
     }
 
     public Palestra salvar(Palestra palestra) {
-        if (vazio(palestra.getNome()) || vazio(palestra.getPalestrante())
-                || vazio(palestra.getData()) || vazio(palestra.getHorario())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Nome, palestrante, data e horário são obrigatórios!");
+        boolean duplicataExata = palestraRepository.existsByNomeAndDataAndHorarioAndPalestrante(
+            palestra.getNome(),
+            palestra.getData(),
+            palestra.getHorario(),
+            palestra.getPalestrante()
+        );
+
+        if (duplicataExata) {
+            throw new IllegalStateException("Esta palestra já está cadastrada.");
         }
 
-        if (palestra.getEvento() == null || palestra.getEvento().getId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "É necessário informar o evento!");
-        }
+        boolean conflitoAgenda = palestraRepository.existsByPalestranteAndDataAndHorario(
+            palestra.getPalestrante(),
+            palestra.getData(),
+            palestra.getHorario()
+        );
 
-        Evento evento = eventoRepository.findById(palestra.getEvento().getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento não encontrado!"));
-        palestra.setEvento(evento);
-
-        validarNaoPassou(palestra);
-        if (palestra.getDataTermino() != null && evento.getDataTermino() != null
-                && palestra.getDataTermino().isAfter(evento.getDataTermino())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "O término da palestra não pode ultrapassar o término do evento.");
-        }
-
-        if (palestraRepository.existsByPalestranteIgnoreCaseAndDataAndHorario(
-                palestra.getPalestrante().trim(), palestra.getData().trim(), palestra.getHorario().trim())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Este palestrante já tem uma palestra cadastrada nesta data e horário.");
+        if (conflitoAgenda) {
+            throw new IllegalStateException(
+                "Este palestrante já tem uma palestra cadastrada nesta data e horário."
+            );
         }
 
         return palestraRepository.save(palestra);
