@@ -3,6 +3,8 @@ package com.capricha.capricha_api.repository;
 import com.capricha.capricha_api.model.Palestra;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface PalestraRepository extends JpaRepository<Palestra, Long> {
 
     boolean existsByPalestranteAndDataAndHorario(String palestrante, String data, String horario);

@@ -1,9 +1,21 @@
 package com.capricha.capricha_api.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.capricha.capricha_api.entidade.Evento;
+import com.capricha.capricha_api.entidade.Pergunta;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 
 @Entity
 public class Palestra {
@@ -22,7 +34,33 @@ public class Palestra {
 
     private String horario;
 
-    private String evento;
+    @Column(name = "data_termino")
+    private java.time.LocalDateTime dataTermino;
+
+    public java.time.LocalDateTime getDataTermino() { return dataTermino; }
+    public void setDataTermino(java.time.LocalDateTime termino) { this.dataTermino = termino; }
+
+    @Column(name = "check_in_token", length = 36)
+    private String checkInToken;
+
+    @JsonIgnore
+    public String getCheckInToken() { return checkInToken; }
+    public void setCheckInToken(String token) { this.checkInToken = token; }
+
+    @ManyToOne
+    @JoinColumn(name = "evento_id")
+    private Evento evento;
+
+    @OneToMany(
+        mappedBy = "palestra",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    @JsonIgnore
+    private List<Pergunta> perguntas = new ArrayList<>();
+
+    @Column(name = "imagem")
+    private String imagem;
 
     public Palestra() {
     }
@@ -75,11 +113,28 @@ public class Palestra {
         this.horario = horario;
     }
 
-    public String getEvento() {
+    public Evento getEvento() {
         return evento;
     }
 
-    public void setEvento(String evento) {
+    public void setEvento(Evento evento) {
         this.evento = evento;
+    }
+
+    public List<Pergunta> getPerguntas() {
+        return perguntas;
+    }
+
+    public void adicionarPergunta(Pergunta pergunta) {
+        perguntas.add(pergunta);
+        pergunta.setPalestra(this);
+    }
+
+    public String getImagem() {
+        return imagem;
+    }
+
+    public void setImagem(String imagem) {
+        this.imagem = imagem;
     }
 }

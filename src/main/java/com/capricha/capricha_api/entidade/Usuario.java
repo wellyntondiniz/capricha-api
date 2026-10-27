@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity
 @Table(name = "usuario")
 public class Usuario {
@@ -23,11 +25,19 @@ public class Usuario {
 	@Email(message = "Email inválido!")
 	private String email;
 	
+	// Guarda somente o hash da senha (ver Senhas). Nunca é enviado nas respostas da API.
+	@JsonIgnore
 	@Column(name = "senha")
 	private String senha;
 	
 	@Column(name = "ativo")
 	private boolean ativo = true;
+	
+	@Column(name = "perfil")
+	private String perfil = "PARTICIPANTE";
+	
+	@Column(name = "foto")
+	private String foto;
 	
 	public Integer getId() {
 		return id;
@@ -67,5 +77,21 @@ public class Usuario {
 	
 	public void setAtivo(boolean ativo) {
 		this.ativo = ativo;
+	}
+	
+	public String getPerfil() {
+		return perfil;
+	}
+	
+	public void setPerfil(String perfil) {
+		this.perfil = perfil;
+	}
+	
+	public String getFoto() {
+		return foto;
+	}
+	
+	public void setFoto(String foto) {
+		this.foto = foto;
 	}
 }

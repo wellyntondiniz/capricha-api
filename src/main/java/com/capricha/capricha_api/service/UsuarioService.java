@@ -1,6 +1,7 @@
 package com.capricha.capricha_api.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,20 +16,69 @@ public class UsuarioService {
 	
 	@Autowired
 	private UsuarioRepository usuarioRepository;
+
+	@Autowired
+	private ArmazenamentoArquivoService armazenamentoArquivoService;
 	
 	public List<Usuario> getUsuarios() {
 		return usuarioRepository.findAllByAtivo(true);
 	}
 	
 	public Usuario getUsuarioById(Integer id) {
-		Usuario usuario = usuarioRepository.findById(id).get();
-		return usuario;
+		return usuarioRepository.findById(id).orElseThrow(
+				() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado.")
+		);
+	}
+
+	public Usuario atualizarFoto(Integer id, org.springframework.web.multipart.MultipartFile foto) {
+		Usuario usuario = getUsuarioById(id);
+
+		if (usuario.getFoto() != null && !usuario.getFoto().isBlank()) {
+			armazenamentoArquivoService.remover(usuario.getFoto());
+		}
+
+		if (foto != null && !foto.isEmpty()) {
+			String nomeArquivo = armazenamentoArquivoService.salvar(foto);
+			usuario.setFoto(nomeArquivo);
+		} else {
+			usuario.setFoto(null);
+		}
+
+		return salvar(usuario);
+	}
+
+	public Usuario removerFoto(Integer id) {
+		Usuario usuario = getUsuarioById(id);
+
+		if (usuario.getFoto() != null && !usuario.getFoto().isBlank()) {
+			armazenamentoArquivoService.remover(usuario.getFoto());
+		}
+
+		usuario.setFoto(null);
+		return salvar(usuario);
 	}
 	
 	public Usuario cadastrarUsuario(Usuario usuario) {
 		validarCadastro(usuario);
+		// A senha nunca é gravada em texto puro: salva apenas o hash (PBKDF2 com salt).
+		usuario.setSenha(Senhas.proteger(usuario.getSenha()));
 		return salvar(usuario);
 	}
+	
+	// Confere e-mail e senha comparando com o hash armazenado.
+	// A mensagem é a mesma para e-mail inexistente e senha errada, para não revelar quais e-mails existem.
+	public Usuario autenticar(String email, String senha) {
+		Optional<Usuario> usuario = usuarioRepository.findFirstByEmailIgnoreCaseAndAtivoTrue(email.trim());
+		String hashArmazenado = usuario.map(Usuario::getSenha).orElse(HASH_FICTICIO);
+		// Mesmo sem usuário, calcula o hash para que o tempo de resposta não denuncie o e-mail.
+		boolean senhaConfere = Senhas.confere(senha, hashArmazenado);
+		if (usuario.isEmpty() || !senhaConfere) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos.");
+		}
+		return usuario.get();
+	}
+	
+	private static final String HASH_FICTICIO = Senhas.proteger("senha-ficticia-para-tempo-constante");
 	
 	public Usuario salvar(Usuario usuario) {
 		return usuarioRepository.save(usuario);
@@ -36,10 +86,54 @@ public class UsuarioService {
 	
 	private void validarCadastro(Usuario usuario) {
 	    if (usuarioRepository.existsByEmail(usuario.getEmail())) {
-	    	throw new ResponseStatusException(
-	    	        HttpStatus.CONFLICT,
-	    	        "Email já cadastrado!"
-	    	    );
+	        throw new ResponseStatusException(
+	            HttpStatus.CONFLICT,
+	            "Email já cadastrado!"
+	        );
+	    }
+
+	    String senha = usuario.getSenha();
+
+	    if (senha == null || senha.length() < 8) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve ter pelo menos 8 caracteres."
+	        );
+	    }
+	    
+	    if (senha.length() > 128) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve ter pelo no máximo 128 caracteres."
+	        );
+	    }
+
+	    if (!senha.equals(senha.trim())) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha não pode começar ou terminar com espaço."
+	        );
+	    }
+
+	    if (!senha.matches(".*[A-Z].*")) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve conter pelo menos uma letra maiúscula."
+	        );
+	    }
+
+	    if (!senha.matches(".*[0-9].*")) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve conter pelo menos um número."
+	        );
+	    }
+
+	    if (!senha.matches(".*[^a-zA-Z0-9].*")) {
+	        throw new ResponseStatusException(
+	            HttpStatus.BAD_REQUEST,
+	            "A senha deve conter pelo menos um caractere especial."
+	        );
 	    }
 	}
 }
