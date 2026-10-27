@@ -32,7 +32,7 @@ public class AvaliacaoAplicativoRestController {
     @GetMapping("/perguntas")
     public List<PerguntaResponse> perguntas() {
         return avaliacoes.listarPerguntas().stream()
-                .map(p -> new PerguntaResponse(p.getId(), p.getTexto(), p.getOrdem()))
+                .map(p -> new PerguntaResponse(p.getId(), p.getEnunciado()))
                 .toList();
     }
 
@@ -52,7 +52,7 @@ public class AvaliacaoAplicativoRestController {
         return new MensagemResponse("Avaliação enviada com sucesso. Obrigado pela sua opinião!");
     }
 
-    public record PerguntaResponse(Integer id, String texto, Integer ordem) {}
+    public record PerguntaResponse(Integer id, String texto) {}
     public record StatusResponse(boolean respondida) {}
     public record EnvioRequest(List<RespostaRecebida> respostas) {}
     public record MensagemResponse(String mensagem) {}

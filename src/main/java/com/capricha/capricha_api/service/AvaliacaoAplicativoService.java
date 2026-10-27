@@ -9,26 +9,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.capricha.capricha_api.entidade.PerguntaAvaliacaoAplicativo;
+import com.capricha.capricha_api.entidade.Pergunta;
 import com.capricha.capricha_api.entidade.RespostaAvaliacaoAplicativo;
 import com.capricha.capricha_api.entidade.Usuario;
-import com.capricha.capricha_api.repository.PerguntaAvaliacaoAplicativoRepository;
+import com.capricha.capricha_api.repository.PerguntaRepository;
 import com.capricha.capricha_api.repository.RespostaAvaliacaoAplicativoRepository;
 
 @Service
 public class AvaliacaoAplicativoService {
-    private final PerguntaAvaliacaoAplicativoRepository perguntas;
+    private final PerguntaRepository perguntas;
     private final RespostaAvaliacaoAplicativoRepository respostas;
 
-    public AvaliacaoAplicativoService(PerguntaAvaliacaoAplicativoRepository perguntas,
+    public AvaliacaoAplicativoService(PerguntaRepository perguntas,
             RespostaAvaliacaoAplicativoRepository respostas) {
         this.perguntas = perguntas;
         this.respostas = respostas;
     }
 
     @Transactional(readOnly = true)
-    public List<PerguntaAvaliacaoAplicativo> listarPerguntas() {
-        return perguntas.findByAtivaTrueOrderByOrdemAscIdAsc();
+    public List<Pergunta> listarPerguntas() {
+        return perguntas.findByAtivoTrueOrderByIdAsc();
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +45,7 @@ public class AvaliacaoAplicativoService {
                     "Você já enviou a avaliação do aplicativo.");
         }
 
-        List<PerguntaAvaliacaoAplicativo> ativas = listarPerguntas();
+        List<Pergunta> ativas = listarPerguntas();
         if (ativas.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Não há perguntas de avaliação disponíveis.");
@@ -55,7 +55,7 @@ public class AvaliacaoAplicativoService {
                     "Responda todas as perguntas da avaliação.");
         }
 
-        var idsAtivos = ativas.stream().map(PerguntaAvaliacaoAplicativo::getId).collect(java.util.stream.Collectors.toSet());
+        var idsAtivos = ativas.stream().map(Pergunta::getId).collect(java.util.stream.Collectors.toSet());
         var idsRecebidos = new HashSet<Integer>();
         Instant agora = Instant.now();
         for (RespostaRecebida recebida : recebidas) {

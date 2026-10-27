@@ -13,7 +13,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "resposta_avaliacao_aplicativo", uniqueConstraints =
+@Table(name = "resposta_avaliacao_pergunta", uniqueConstraints =
         @UniqueConstraint(columnNames = { "usuario_id", "pergunta_id" }))
 public class RespostaAvaliacaoAplicativo {
     @Id
@@ -26,7 +26,7 @@ public class RespostaAvaliacaoAplicativo {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "pergunta_id", nullable = false)
-    private PerguntaAvaliacaoAplicativo pergunta;
+    private Pergunta pergunta;
 
     @Column(nullable = false)
     private Integer nota;
@@ -38,8 +38,8 @@ public class RespostaAvaliacaoAplicativo {
     public void setId(Long id) { this.id = id; }
     public Usuario getUsuario() { return usuario; }
     public void setUsuario(Usuario usuario) { this.usuario = usuario; }
-    public PerguntaAvaliacaoAplicativo getPergunta() { return pergunta; }
-    public void setPergunta(PerguntaAvaliacaoAplicativo pergunta) { this.pergunta = pergunta; }
+    public Pergunta getPergunta() { return pergunta; }
+    public void setPergunta(Pergunta pergunta) { this.pergunta = pergunta; }
     public Integer getNota() { return nota; }
     public void setNota(Integer nota) { this.nota = nota; }
     public Instant getRespondidaEm() { return respondidaEm; }
