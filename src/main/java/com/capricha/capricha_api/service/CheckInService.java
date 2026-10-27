@@ -78,7 +78,7 @@ public class CheckInService {
             participacao = new Participacao();
             participacao.setEvento(evento);
             participacao.setUsuario(usuario);
-            participacao.setScore(0);
+            participacao.setScore(10);
         } else {
             participacao = existentes.get(0);
         }
