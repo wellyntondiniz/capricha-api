@@ -50,10 +50,9 @@ public class ParticipacaoService {
 				participacao.getUsuario().getId(), evento.getId());
 		// Uma inscrição não pode sobrescrever presença/pontos nem criar outra participação do mesmo par.
 		if (!existentes.isEmpty()) return existentes.get(0);
-		participacao.setId(null);
 		participacao.setEvento(evento);
 		participacao.setCheckedInAt(null);
-		participacao.setScore(0);
+		participacao.setScore(10);
 		return participacaoRepository.save(participacao);
 	}
 	
