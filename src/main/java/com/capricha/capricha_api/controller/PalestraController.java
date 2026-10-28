@@ -42,6 +42,7 @@ public class PalestraController {
             @RequestParam("data") String data,
             @RequestParam("horario") String horario,
             @RequestParam("evento") Integer eventoId,
+            @RequestParam(value = "dataTermino", required = false) String dataTermino,
             @RequestParam(value = "imagem", required = false) MultipartFile imagem
     ) {
 
@@ -52,6 +53,14 @@ public class PalestraController {
         palestra.setPalestrante(palestrante);
         palestra.setData(data);
         palestra.setHorario(horario);
+        if (dataTermino != null && !dataTermino.isBlank()) {
+            try {
+                palestra.setDataTermino(java.time.LocalDateTime.parse(dataTermino));
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Data e horário de término inválidos.");
+            }
+        }
         Evento evento = new Evento();
         evento.setId(eventoId);
         palestra.setEvento(evento);

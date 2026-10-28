@@ -17,6 +17,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 	
 	Optional<Usuario> findFirstByEmailIgnoreCaseAndAtivoTrue(String email);
 	
+	Optional<Usuario> findFirstByEmailIgnoreCase(String email);
+	
 	List<Usuario> findBySenhaNotLike(String prefixo);
 	
 }

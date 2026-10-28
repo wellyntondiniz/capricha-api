@@ -11,6 +11,10 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ErrosController {
+    @ExceptionHandler(CheckInException.class)
+    public ResponseEntity<Map<String, String>> checkIn(CheckInException erro) {
+        return ResponseEntity.status(erro.getStatus()).body(Map.of("code", erro.getCode(), "mensagem", erro.getMessage()));
+    }
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> tratar(ResponseStatusException erro) {
         return ResponseEntity.status(erro.getStatusCode()).body(Map.of("mensagem",

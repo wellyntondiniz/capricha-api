@@ -11,6 +11,9 @@ import com.capricha.capricha_api.entidade.Participacao;
 
 @Repository
 public interface ParticipacaoRepository extends JpaRepository<Participacao, Integer> {
+
+	List<Participacao> findByUsuarioIdAndEventoIdOrderByIdAsc(Integer usuarioId, Integer eventoId);
+	List<Participacao> findByUsuarioIdAndCheckedInAtIsNotNull(Integer usuarioId);
 	
 	public List<Participacao> findByUsuarioAtivoTrueAndEventoAtivoTrue();
 	
