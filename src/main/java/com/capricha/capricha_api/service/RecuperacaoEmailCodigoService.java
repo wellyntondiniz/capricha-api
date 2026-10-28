@@ -24,24 +24,28 @@ public class RecuperacaoEmailCodigoService {
     @Transactional
     public Map<String,Object> solicitar(String email) {
         envio.validar();
-        String id = UUID.randomUUID().toString();
         String normalizado = email.trim().toLowerCase(Locale.ROOT);
-        var usuario = usuarios.buscarAtivoParaAtualizacao(normalizado);
+        // Só segue no fluxo quem tem conta ativa: sem usuário, não há código nem desafio.
+        usuarios.buscarAtivoParaAtualizacao(normalizado).orElseThrow(() ->
+            new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "Não encontramos uma conta ativa com este e-mail. Confira o endereço ou cadastre-se."));
         Instant agora = Instant.now();
-        if (usuario.isPresent()) {
-            var ultimo = codigos.findFirstByEmailOrderByCriadoDesc(normalizado);
-            if (ultimo.filter(c -> c.criado.plusSeconds(60).isAfter(agora)).isEmpty()
-                    && codigos.countByEmailAndCriadoAfter(normalizado, agora.minusSeconds(900)) < 3) {
-                String codigo = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));
-                CodigoEmail desafio = new CodigoEmail();
-                desafio.id=id; desafio.email=normalizado; desafio.hash=hash(id+":"+codigo);
-                desafio.criado=agora; desafio.expira=agora.plusSeconds(600);
-                codigos.save(desafio); envio.enviar(normalizado,codigo,id);
-            }
-        }
+        var ultimo = codigos.findFirstByEmailOrderByCriadoDesc(normalizado);
+        if (ultimo.filter(c -> c.criado.plusSeconds(60).isAfter(agora)).isPresent())
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                "Um código já foi enviado há pouco. Aguarde 1 minuto para solicitar outro.");
+        if (codigos.countByEmailAndCriadoAfter(normalizado, agora.minusSeconds(900)) >= 3)
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                "Limite de solicitações atingido. Tente novamente em alguns minutos.");
+        String id = UUID.randomUUID().toString();
+        String codigo = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));
+        CodigoEmail desafio = new CodigoEmail();
+        desafio.id=id; desafio.email=normalizado; desafio.hash=hash(id+":"+codigo);
+        desafio.criado=agora; desafio.expira=agora.plusSeconds(600);
+        codigos.save(desafio); envio.enviar(normalizado,codigo,id);
         return Map.of("desafio",id,"simulado",envio.simulado(),"mensagem",
             envio.simulado() ? "Modo local: consulte o código de e-mail simulado no terminal da API."
-            : "Se o e-mail estiver cadastrado, enviaremos um código.");
+            : "Enviamos um código para o seu e-mail.");
     }
     @Transactional(noRollbackFor=ResponseStatusException.class)
     public void validar(String id,String codigo) {
