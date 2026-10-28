@@ -10,6 +10,4 @@ import com.capricha.capricha_api.entidade.Pergunta;
 @Repository
 public interface PerguntaRepository extends JpaRepository<Pergunta, Integer> {
 	public List<Pergunta> findAllByAtivo(boolean ativo);
-
-	List<Pergunta> findByAtivoTrueOrderByIdAsc();
 }
