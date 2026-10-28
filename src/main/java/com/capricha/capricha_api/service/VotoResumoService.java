@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,9 @@ public class VotoResumoService {
 	private final ParticipacaoRepository participacoes;
 	private final VotoResumoRepository votos;
 	private final CheckInQrService qr;
+	
+	@Autowired
+    private ParticipacaoService participacaoService;
 
 	public VotoResumoService(ResumoRepository resumos, EventoRepository eventos, ParticipacaoRepository participacoes,
 			VotoResumoRepository votos, CheckInQrService qr) {
@@ -88,6 +92,7 @@ public class VotoResumoService {
 		VotoResumo voto;
 		try {
 			voto = votos.saveAndFlush(new VotoResumo(usuario, resumo, evento, Instant.now()));
+			participacaoService.atualizarScore(usuario.getId(), evento.getId(), 50);
 		} catch (DataIntegrityViolationException e) {
 			String detalhe = e.getMostSpecificCause().getMessage();
 			if (detalhe != null && detalhe.toLowerCase(Locale.ROOT).contains("uk_voto_usuario_resumo")) {
