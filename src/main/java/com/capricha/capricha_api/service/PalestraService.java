@@ -51,7 +51,7 @@ public class PalestraService {
 
         if (conflitoAgenda) {
             throw new IllegalStateException(
-                "Este palestrante já tem uma palestra cadastrada nesta data e horário."
+                "Palestrante já está em outra palestra nesta hora."
             );
         }
 
