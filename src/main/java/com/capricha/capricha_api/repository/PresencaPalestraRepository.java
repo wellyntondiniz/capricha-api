@@ -11,4 +11,6 @@ public interface PresencaPalestraRepository extends JpaRepository<PresencaPalest
 
     @EntityGraph(attributePaths = "palestra")
     List<PresencaPalestra> findByUsuarioId(Integer usuarioId);
+
+    boolean existsByPalestraId(Long palestraId);
 }

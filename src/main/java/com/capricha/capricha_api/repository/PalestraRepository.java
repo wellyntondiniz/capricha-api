@@ -16,6 +16,13 @@ public interface PalestraRepository extends JpaRepository<Palestra, Long> {
 
     boolean existsByNomeAndDataAndHorarioAndPalestrante(String nome, String data, String horario, String palestrante);
 
+    // Variações que ignoram a própria palestra (usadas na edição).
+    boolean existsByPalestranteAndDataAndHorarioAndIdNot(String palestrante, String data, String horario, Long id);
+
+    boolean existsByNomeAndDataAndHorarioAndPalestranteAndIdNot(String nome, String data, String horario, String palestrante, Long id);
+
+    List<Palestra> findAllByOrderByIdDesc();
+
     List<Palestra> findByEventoId(Integer eventoId);
 
     List<Palestra> findByEventoAtivoTrue();
