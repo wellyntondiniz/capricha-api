@@ -2,9 +2,11 @@ package com.capricha.capricha_api.controller;
 
 import com.capricha.capricha_api.entidade.Evento;
 import com.capricha.capricha_api.entidade.Pergunta;
+import com.capricha.capricha_api.entidade.Usuario;
 import com.capricha.capricha_api.model.Palestra;
 import com.capricha.capricha_api.service.ArmazenamentoArquivoService;
 import com.capricha.capricha_api.service.PalestraService;
+import com.capricha.capricha_api.service.SessaoUsuarioService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,22 +25,30 @@ public class PalestraController {
 
     private final PalestraService palestraService;
     private final ArmazenamentoArquivoService armazenamentoArquivoService;
+    private final SessaoUsuarioService sessoes;
 
     public PalestraController(
             PalestraService palestraService,
-            ArmazenamentoArquivoService armazenamentoArquivoService
+            ArmazenamentoArquivoService armazenamentoArquivoService,
+            SessaoUsuarioService sessoes
     ) {
         this.palestraService = palestraService;
         this.armazenamentoArquivoService = armazenamentoArquivoService;
+        this.sessoes = sessoes;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Palestra cadastrar(@RequestBody Palestra palestra) {
+    public Palestra cadastrar(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody Palestra palestra
+    ) {
+        exigirAdministrador(authorization);
         return palestraService.salvar(palestra);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Palestra cadastrarComImagem(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam("nome") String nome,
             @RequestParam(value = "descricao", required = false, defaultValue = "") String descricao,
             @RequestParam("palestrante") String palestrante,
@@ -48,6 +58,8 @@ public class PalestraController {
             @RequestParam(value = "dataTermino", required = false) String dataTermino,
             @RequestParam(value = "imagem", required = false) MultipartFile imagem
     ) {
+        exigirAdministrador(authorization);
+
         Palestra palestra = montar(nome, descricao, palestrante, data, horario, eventoId, dataTermino);
 
         String nomeArquivo = armazenamentoArquivoService.salvar(imagem);
@@ -64,6 +76,7 @@ public class PalestraController {
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Palestra atualizar(
             @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam("nome") String nome,
             @RequestParam(value = "descricao", required = false, defaultValue = "") String descricao,
             @RequestParam("palestrante") String palestrante,
@@ -74,6 +87,8 @@ public class PalestraController {
             @RequestParam(value = "removerImagem", required = false, defaultValue = "false") boolean removerImagem,
             @RequestParam(value = "imagem", required = false) MultipartFile imagem
     ) {
+        exigirAdministrador(authorization);
+
         Palestra dados = montar(nome, descricao, palestrante, data, horario, eventoId, dataTermino);
 
         String nomeArquivo = armazenamentoArquivoService.salvar(imagem);
@@ -87,7 +102,11 @@ public class PalestraController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void excluir(@PathVariable Long id) {
+    public void excluir(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        exigirAdministrador(authorization);
         palestraService.excluir(id);
     }
 
@@ -141,5 +160,14 @@ public class PalestraController {
         palestra.setEvento(evento);
 
         return palestra;
+    }
+
+    private void exigirAdministrador(String authorization) {
+        Usuario usuario = sessoes.autenticar(authorization);
+        String perfil = usuario.getPerfil();
+        if (!"ADMIN".equalsIgnoreCase(perfil) && !"ADMINISTRADOR".equalsIgnoreCase(perfil)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Somente administradores podem gerenciar palestras.");
+        }
     }
 }

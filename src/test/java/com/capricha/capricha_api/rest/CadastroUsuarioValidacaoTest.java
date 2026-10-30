@@ -17,18 +17,23 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.capricha.capricha_api.entidade.Usuario;
+import com.capricha.capricha_api.service.ConfirmacaoCadastroService;
+import com.capricha.capricha_api.service.ConfirmacaoCadastroService.Resultado;
 import com.capricha.capricha_api.service.UsuarioService;
 
 class CadastroUsuarioValidacaoTest {
 
 	private UsuarioService usuarioService;
+	private ConfirmacaoCadastroService confirmacaoCadastroService;
 	private MockMvc mockMvc;
 
 	@BeforeEach
 	void configurar() {
 		usuarioService = mock(UsuarioService.class);
+		confirmacaoCadastroService = mock(ConfirmacaoCadastroService.class);
 		UsuarioRestController controller = new UsuarioRestController();
 		ReflectionTestUtils.setField(controller, "usuarioService", usuarioService);
+		ReflectionTestUtils.setField(controller, "confirmacaoCadastroService", confirmacaoCadastroService);
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
 				.setControllerAdvice(new ErrosController())
 				.build();
@@ -53,6 +58,7 @@ class CadastroUsuarioValidacaoTest {
 				jsonPath("$.campos.senha").value("Informe a senha."),
 				jsonPath("$.mensagem").exists());
 		verify(usuarioService, never()).cadastrarUsuario(any());
+		verify(confirmacaoCadastroService, never()).enviar(any());
 	}
 
 	@Test
@@ -73,9 +79,22 @@ class CadastroUsuarioValidacaoTest {
 	@Test
 	void cadastraQuandoTodosOsCamposSaoValidos() throws Exception {
 		when(usuarioService.cadastrarUsuario(any())).thenAnswer(chamada -> chamada.getArgument(0, Usuario.class));
+		when(confirmacaoCadastroService.enviar(any())).thenReturn(new Resultado(true, false, "Enviamos um e-mail."));
 		cadastrar("{\"nome\":\" joao \",\"email\":\" joao@exemplo.com \",\"senha\":\"senha1234\"}", 200,
 				jsonPath("$.nome").value("joao"),
 				jsonPath("$.email").value("joao@exemplo.com"),
-				jsonPath("$.senha").doesNotExist());
+				jsonPath("$.senha").doesNotExist(),
+				jsonPath("$.emailConfirmacaoEnviado").value(true),
+				jsonPath("$.mensagemEmail").value("Enviamos um e-mail."));
+	}
+
+	@Test
+	void cadastroContinuaValidoQuandoOEnvioDoEmailFalha() throws Exception {
+		when(usuarioService.cadastrarUsuario(any())).thenAnswer(chamada -> chamada.getArgument(0, Usuario.class));
+		when(confirmacaoCadastroService.enviar(any())).thenReturn(new Resultado(false, false, "Não foi possível enviar."));
+		cadastrar("{\"nome\":\"joao\",\"email\":\"joao@exemplo.com\",\"senha\":\"senha1234\"}", 200,
+				jsonPath("$.email").value("joao@exemplo.com"),
+				jsonPath("$.emailConfirmacaoEnviado").value(false),
+				jsonPath("$.mensagemEmail").value("Não foi possível enviar."));
 	}
 }
