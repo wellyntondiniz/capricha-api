@@ -10,5 +10,6 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
 	List<Quiz> findByAtivoTrueOrderByIdAsc();
 
-	boolean existsByPalestraIdAndTituloIgnoreCaseAndAtivoTrue(Long palestraId, String titulo);
+	/** Cada palestra tem no máximo um quiz ativo. */
+	boolean existsByPalestraIdAndAtivoTrue(Long palestraId);
 }

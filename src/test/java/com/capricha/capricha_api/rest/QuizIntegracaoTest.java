@@ -378,11 +378,147 @@ class QuizIntegracaoTest {
         cadastrar(adminToken, "Outro quiz", null, palestra.getId()).andExpect(status().isBadRequest());
         cadastrar(adminToken, "Outro quiz", 50, null).andExpect(status().isBadRequest());
         cadastrar(adminToken, "Outro quiz", 50, 987654).andExpect(status().isNotFound());
-        // título repetido na mesma palestra (sem diferenciar maiúsculas)
+        // a palestra já tem quiz: nem título repetido nem título diferente passam
         cadastrar(adminToken, "QUIZ DA PALESTRA", 50, palestra.getId()).andExpect(status().isConflict());
+        cadastrar(adminToken, "Outro quiz", 50, palestra.getId()).andExpect(status().isConflict());
         assertEquals(1, quizzes.count());
-        cadastrar(adminToken, "Outro quiz", 50, palestra.getId()).andExpect(status().isCreated());
+        // em outra palestra com perguntas válidas o cadastro funciona
+        Palestra outra = palestraComPergunta("Segunda palestra", "Bruno");
+        cadastrar(adminToken, "Outro quiz", 50, outra.getId()).andExpect(status().isCreated());
         assertEquals(2, quizzes.count());
+    }
+
+    @Test
+    void naoPermiteMaisDeUmQuizPorPalestra() throws Exception {
+        cadastrar(adminToken, "Segundo quiz", 50, palestra.getId()).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensagem").value(
+                        "Esta palestra já tem um quiz cadastrado. Edite o quiz existente para alterar as perguntas."));
+        assertEquals(1, quizzes.count());
+    }
+
+    private Palestra palestraComPergunta(String nome, String palestrante) throws Exception {
+        Palestra nova = novaPalestra();
+        nova.setNome(nome);
+        nova.setPalestrante(palestrante);
+        nova = palestras.saveAndFlush(nova);
+        mvc.perform(post("/palestras/" + nova.getId() + "/add-pergunta").contentType(JSON)
+                .content(json.writeValueAsString(Map.of("enunciado", "Pergunta da " + nome, "alternativas", List.of(
+                        Map.of("texto", "Certa", "correta", true), Map.of("texto", "Errada", "correta", false))))))
+                .andExpect(status().isOk());
+        return nova;
+    }
+
+    // ---------- edição do quiz (administrador) ----------
+
+    private org.springframework.test.web.servlet.ResultActions editar(String credencial, Object titulo, Object pontos)
+            throws Exception {
+        Map<String, Object> corpo = new java.util.HashMap<>();
+        corpo.put("titulo", titulo);
+        corpo.put("descricao", "Nova descrição");
+        corpo.put("pontuacao", pontos);
+        var req = put("/quizzes/" + quizId).contentType(JSON).content(json.writeValueAsString(corpo));
+        if (credencial != null) req = req.header("Authorization", "Bearer " + credencial);
+        return mvc.perform(req);
+    }
+
+    @Test
+    void somenteAdministradorEditaQuizEOsDadosSaoValidados() throws Exception {
+        editar(null, "Quiz editado", 80).andExpect(status().isUnauthorized());
+        editar(token, "Quiz editado", 80).andExpect(status().isForbidden());
+        editar(adminToken, "  ", 80).andExpect(status().isBadRequest());
+        editar(adminToken, "ab", 80).andExpect(status().isBadRequest());
+        editar(adminToken, "Quiz editado", 0).andExpect(status().isBadRequest());
+        editar(adminToken, "Quiz editado", 1001).andExpect(status().isBadRequest());
+        editar(adminToken, "Quiz editado", null).andExpect(status().isBadRequest());
+        assertEquals("Quiz da palestra", quizzes.findById(quizId).orElseThrow().getTitulo());
+
+        editar(adminToken, "Quiz editado", 80).andExpect(status().isOk())
+                .andExpect(jsonPath("$.titulo").value("Quiz editado"))
+                .andExpect(jsonPath("$.pontuacao").value(80))
+                .andExpect(jsonPath("$.totalPerguntas").value(2));
+        var salvo = quizzes.findById(quizId).orElseThrow();
+        assertEquals("Quiz editado", salvo.getTitulo());
+        assertEquals(80, salvo.getPontuacao());
+        assertEquals(palestra.getId(), salvo.getPalestra().getId());
+    }
+
+    @Test
+    void quizInexistenteNaEdicaoRetorna404() throws Exception {
+        mvc.perform(put("/quizzes/987654").header("Authorization", "Bearer " + adminToken).contentType(JSON)
+                .content(json.writeValueAsString(Map.of("titulo", "Qualquer", "pontuacao", 10))))
+                .andExpect(status().isNotFound());
+    }
+
+    // ---------- edição, inclusão e exclusão de perguntas refletem no quiz ----------
+
+    @Test
+    void editarPerguntaTrocaTextosECorretasEAdicionarAlternativaFunciona() throws Exception {
+        Integer id = p1.get("id").asInt();
+        List<Map<String, Object>> alternativas = new ArrayList<>();
+        // mantém a primeira (agora errada), a segunda vira a correta e entra uma alternativa nova
+        alternativas.add(Map.of("id", idAlternativa(p1, 0), "texto", "Brasília (editada)", "correta", false));
+        alternativas.add(Map.of("id", idAlternativa(p1, 1), "texto", "Rio de Janeiro", "correta", true));
+        alternativas.add(Map.of("texto", "Curitiba", "correta", false));
+        mvc.perform(put("/pergunta/" + id).contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "Qual é a capital do Brasil (editada)?", "alternativas", alternativas))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enunciado").value("Qual é a capital do Brasil (editada)?"))
+                .andExpect(jsonPath("$.alternativas.length()").value(3));
+
+        mvc.perform(get("/quizzes").header("Authorization", "Bearer " + adminToken)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].totalPerguntas").value(2))
+                .andExpect(jsonPath("$[0].perguntas[0].enunciado").value("Qual é a capital do Brasil (editada)?"))
+                .andExpect(jsonPath("$[0].perguntas[0].alternativas.length()").value(3));
+    }
+
+    @Test
+    void edicaoDePerguntaInvalidaEhRecusadaSemAlterarNada() throws Exception {
+        Integer id = p1.get("id").asInt();
+        // só uma alternativa
+        mvc.perform(put("/pergunta/" + id).contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "Enunciado válido", "alternativas",
+                        List.of(Map.of("id", idAlternativa(p1, 0), "texto", "Brasília", "correta", true))))))
+                .andExpect(status().isBadRequest());
+        // nenhuma correta
+        mvc.perform(put("/pergunta/" + id).contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "Enunciado válido", "alternativas", List.of(
+                        Map.of("id", idAlternativa(p1, 0), "texto", "Brasília", "correta", false),
+                        Map.of("id", idAlternativa(p1, 1), "texto", "Rio", "correta", false))))))
+                .andExpect(status().isBadRequest());
+        // todas corretas
+        mvc.perform(put("/pergunta/" + id).contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "Enunciado válido", "alternativas", List.of(
+                        Map.of("id", idAlternativa(p1, 0), "texto", "Brasília", "correta", true),
+                        Map.of("id", idAlternativa(p1, 1), "texto", "Rio", "correta", true))))))
+                .andExpect(status().isBadRequest());
+        // alternativas repetidas
+        mvc.perform(put("/pergunta/" + id).contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "Enunciado válido", "alternativas", List.of(
+                        Map.of("id", idAlternativa(p1, 0), "texto", "Brasília", "correta", true),
+                        Map.of("id", idAlternativa(p1, 1), "texto", "brasília", "correta", false))))))
+                .andExpect(status().isBadRequest());
+        // enunciado vazio
+        mvc.perform(put("/pergunta/" + id).contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "   "))))
+                .andExpect(status().isBadRequest());
+        // pergunta inexistente
+        mvc.perform(put("/pergunta/987654").contentType(JSON).content(json.writeValueAsString(
+                Map.of("enunciado", "Enunciado válido"))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void excluirPerguntaTiraEssaPerguntaDoQuiz() throws Exception {
+        mvc.perform(put("/pergunta/deletar/" + p2.get("id").asInt())).andExpect(status().isOk());
+        mvc.perform(get("/quizzes").header("Authorization", "Bearer " + adminToken)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].totalPerguntas").value(1));
+    }
+
+    @Test
+    void perguntaNovaCadastradaDepoisEntraNoQuiz() throws Exception {
+        pergunta("Quanto é 2 + 2?", new String[] { "4", "5", "6" }, 0);
+        mvc.perform(get("/quizzes").header("Authorization", "Bearer " + adminToken)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].totalPerguntas").value(3));
     }
 
     @Test

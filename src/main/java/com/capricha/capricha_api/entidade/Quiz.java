@@ -53,6 +53,13 @@ public class Quiz {
 		this.palestra = palestra;
 	}
 
+	/** Edita os dados do quiz. A palestra não muda: o quiz pertence a ela. */
+	public void atualizar(String titulo, String descricao, int pontuacao) {
+		this.titulo = titulo;
+		this.descricao = descricao;
+		this.pontuacao = pontuacao;
+	}
+
 	public Long getId() { return id; }
 	public String getTitulo() { return titulo; }
 	public String getDescricao() { return descricao; }
