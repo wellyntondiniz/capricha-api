@@ -52,4 +52,24 @@ public class EnvioCodigoEmail {
                 "Não foi possível enviar o e-mail. Verifique a senha de aplicativo do Gmail.");
         }
     }
+    // Confirmação de cadastro: lança ResponseStatusException se o e-mail não puder ser enviado.
+    public void enviarConfirmacaoCadastro(String destinatario, String nome) {
+        validar();
+        if (simulado()) {
+            LoggerFactory.getLogger(EnvioCodigoEmail.class).info(
+                "[E-MAIL SIMULADO - NÃO ENVIADO] Confirmação de cadastro para {} ({})", destinatario, nome);
+            return;
+        }
+        SimpleMailMessage mensagem = new SimpleMailMessage();
+        mensagem.setFrom(remetente); mensagem.setTo(destinatario);
+        mensagem.setSubject("Cadastro realizado - Capricha");
+        mensagem.setText("Olá, " + nome + "!\n\n"
+            + "Seu cadastro no sistema Capricha foi realizado com sucesso com o e-mail " + destinatario + ".\n\n"
+            + "Se você não realizou este cadastro, ignore esta mensagem.");
+        try { mail.send(mensagem); }
+        catch (org.springframework.mail.MailException erro) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Não foi possível enviar o e-mail de confirmação.");
+        }
+    }
 }
