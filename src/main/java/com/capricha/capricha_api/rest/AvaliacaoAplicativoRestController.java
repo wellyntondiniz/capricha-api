@@ -45,18 +45,55 @@ public class AvaliacaoAplicativoRestController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @Valid @RequestBody AvaliacaoRequest request) {
         avaliacoes.salvar(sessoes.autenticar(authorization), new Respostas(
-                request.navegacao(), request.clarezaInformacoes(),
-                request.utilidadeFuncionalidades(), request.desempenhoTecnico(),
-                request.recomendacao(), request.comentario()));
+                request.peou01(), request.peou02(), request.peou03(), request.peou04(), request.peou05(), request.peou06(),
+                request.pu01(), request.pu02(), request.pu03(), request.pu04(), request.pu05(), request.pu06(),
+                request.ac01(), request.ac02(), request.ac03(), request.ac04(), request.ac05(), request.ac06(), request.ac07(), request.ac08(),
+                request.se01(), request.se02(), request.se03(), request.se04(), request.se05(), request.se06(), request.se07(), request.se08(),
+                request.com01(), request.com02(), request.com03(),
+                request.coo01(), request.coo02(), request.coo03(),
+                request.cop01(), request.cop02(), request.cop03(),
+                request.comentario()));
         return new MensagemResponse("Avaliação enviada com sucesso. Obrigado pela sua opinião!");
     }
 
     public record AvaliacaoRequest(
-            @NotNull @Min(1) @Max(5) Integer navegacao,
-            @NotNull @Min(1) @Max(5) Integer clarezaInformacoes,
-            @NotNull @Min(1) @Max(5) Integer utilidadeFuncionalidades,
-            @NotNull @Min(1) @Max(5) Integer desempenhoTecnico,
-            @NotNull @Min(1) @Max(5) Integer recomendacao,
+            @NotNull @Min(1) @Max(5) Integer peou01,
+            @NotNull @Min(1) @Max(5) Integer peou02,
+            @NotNull @Min(1) @Max(5) Integer peou03,
+            @NotNull @Min(1) @Max(5) Integer peou04,
+            @NotNull @Min(1) @Max(5) Integer peou05,
+            @NotNull @Min(1) @Max(5) Integer peou06,
+            @NotNull @Min(1) @Max(5) Integer pu01,
+            @NotNull @Min(1) @Max(5) Integer pu02,
+            @NotNull @Min(1) @Max(5) Integer pu03,
+            @NotNull @Min(1) @Max(5) Integer pu04,
+            @NotNull @Min(1) @Max(5) Integer pu05,
+            @NotNull @Min(1) @Max(5) Integer pu06,
+            @NotNull @Min(1) @Max(5) Integer ac01,
+            @NotNull @Min(1) @Max(5) Integer ac02,
+            @NotNull @Min(1) @Max(5) Integer ac03,
+            @NotNull @Min(1) @Max(5) Integer ac04,
+            @NotNull @Min(1) @Max(5) Integer ac05,
+            @NotNull @Min(1) @Max(5) Integer ac06,
+            @NotNull @Min(1) @Max(5) Integer ac07,
+            @NotNull @Min(1) @Max(5) Integer ac08,
+            @NotNull @Min(1) @Max(5) Integer se01,
+            @NotNull @Min(1) @Max(5) Integer se02,
+            @NotNull @Min(1) @Max(5) Integer se03,
+            @NotNull @Min(1) @Max(5) Integer se04,
+            @NotNull @Min(1) @Max(5) Integer se05,
+            @NotNull @Min(1) @Max(5) Integer se06,
+            @NotNull @Min(1) @Max(5) Integer se07,
+            @NotNull @Min(1) @Max(5) Integer se08,
+            @NotNull @Min(1) @Max(5) Integer com01,
+            @NotNull @Min(1) @Max(5) Integer com02,
+            @NotNull @Min(1) @Max(5) Integer com03,
+            @NotNull @Min(1) @Max(5) Integer coo01,
+            @NotNull @Min(1) @Max(5) Integer coo02,
+            @NotNull @Min(1) @Max(5) Integer coo03,
+            @NotNull @Min(1) @Max(5) Integer cop01,
+            @NotNull @Min(1) @Max(5) Integer cop02,
+            @NotNull @Min(1) @Max(5) Integer cop03,
             @Size(max = 1000, message = "O comentário deve ter no máximo 1000 caracteres.")
             String comentario) {}
 
