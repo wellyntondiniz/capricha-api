@@ -1,13 +1,16 @@
 package com.capricha.capricha_api.service;
 
 import java.time.Instant;
+import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.capricha.capricha_api.entidade.AvaliacaoAplicativo;
+import com.capricha.capricha_api.entidade.Participacao;
 import com.capricha.capricha_api.entidade.Usuario;
 import com.capricha.capricha_api.repository.AvaliacaoAplicativoRepository;
 
@@ -15,6 +18,9 @@ import com.capricha.capricha_api.repository.AvaliacaoAplicativoRepository;
 public class AvaliacaoAplicativoService {
     private final AvaliacaoAplicativoRepository avaliacoes;
 
+    @Autowired
+    private ParticipacaoService participacaoService;
+    
     public AvaliacaoAplicativoService(AvaliacaoAplicativoRepository avaliacoes) {
         this.avaliacoes = avaliacoes;
     }
@@ -43,6 +49,13 @@ public class AvaliacaoAplicativoService {
         String comentario = respostas.comentario() == null ? null : respostas.comentario().trim();
         avaliacao.setComentario(comentario == null || comentario.isEmpty() ? null : comentario);
         avaliacao.setRespondidaEm(Instant.now());
+        
+        List<Participacao> participacoes = participacaoService.getParticipacoesByUsuario(usuario.getId());
+        
+        for (Participacao participacao : participacoes) {
+        	participacaoService.atualizarScore(usuario.getId(), participacao.getEvento().getId(), 200);
+        }
+        
         return avaliacoes.save(avaliacao);
     }
 

@@ -25,8 +25,12 @@ public class CheckInService {
     private final CheckInQrService qr;
     private final PalestraRepository palestras;
     private final PresencaPalestraRepository presencasPalestra;
+    
     @Autowired
     private ParticipacaoService participacaoService;
+    
+    @Autowired
+    private AvaliacaoAplicativoService avaliacaoAplicativoService;
 
     public CheckInService(EventoRepository eventos, ParticipacaoRepository participacoes, CheckInQrService qr,
             PalestraRepository palestras, PresencaPalestraRepository presencasPalestra) {
@@ -90,6 +94,9 @@ public class CheckInService {
         }
         // Os pontos da presença valem igualmente para quem já tinha inscrição (antes só quem não tinha recebia).
         participacao.setScore((participacao.getScore() == null ? 0 : participacao.getScore()) + PONTOS_CHECK_IN_EVENTO);
+        if (avaliacaoAplicativoService.jaRespondeu(usuario)) {
+        	participacao.setScore(participacao.getScore() + 200);
+        }
         participacao.setCheckedInAt(Instant.now());
         participacoes.saveAndFlush(participacao);
         return new Registro(participacao.getId(), id, evento.getNome(), participacao.getCheckedInAt(),
