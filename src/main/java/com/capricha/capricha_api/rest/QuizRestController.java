@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,5 +61,11 @@ public class QuizRestController {
 	public QuizService.QuizDto cadastrar(@RequestBody QuizService.NovoQuiz quiz,
 			@RequestHeader(value = "Authorization", required = false) String authorization) {
 		return quizzes.criar(sessoes.autenticar(authorization), quiz);
+	}
+
+	@PutMapping("/{id}")
+	public QuizService.QuizDto atualizar(@PathVariable Long id, @RequestBody QuizService.EdicaoQuiz quiz,
+			@RequestHeader(value = "Authorization", required = false) String authorization) {
+		return quizzes.atualizar(sessoes.autenticar(authorization), id, quiz);
 	}
 }

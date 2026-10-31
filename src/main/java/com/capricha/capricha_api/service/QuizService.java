@@ -49,6 +49,8 @@ public class QuizService {
 	public static final String EVENTO_SEM_CHECK_IN = "EVENT_CHECK_IN_REQUIRED";
 	public static final String PALESTRA_SEM_CHECK_IN = "LECTURE_CHECK_IN_REQUIRED";
 	public static final String SEM_PERGUNTAS = "QUIZ_EMPTY";
+	public static final String PALESTRA_JA_TEM_QUIZ =
+			"Esta palestra já tem um quiz cadastrado. Edite o quiz existente para alterar as perguntas.";
 
 	public record AlternativaDto(Integer id, String texto) {}
 	public record PerguntaDto(Integer id, String enunciado, List<AlternativaDto> alternativas) {}
@@ -59,6 +61,7 @@ public class QuizService {
 	public record ResultadoDto(Long quizId, int acertos, int totalPerguntas, int pontosObtidos) {}
 	public record RespostaPergunta(Integer perguntaId, List<Integer> alternativaIds) {}
 	public record NovoQuiz(String titulo, String descricao, Integer pontuacao, Long palestraId) {}
+	public record EdicaoQuiz(String titulo, String descricao, Integer pontuacao) {}
 
 	private final QuizRepository quizzes;
 	private final RespostaQuizRepository respostas;
@@ -109,33 +112,21 @@ public class QuizService {
 
 	@Transactional
 	public QuizDto criar(Usuario usuario, NovoQuiz dados) {
-		if (!ehAdmin(usuario)) {
-			throw new CheckInException(403, "FORBIDDEN", "Somente administradores podem cadastrar quizzes.");
-		}
-		String titulo = dados.titulo() == null ? "" : dados.titulo().trim();
-		String descricao = dados.descricao() == null ? "" : dados.descricao().trim();
-		if (titulo.isEmpty()) {
-			throw erro(HttpStatus.BAD_REQUEST, "É necessário informar o título do quiz.");
-		}
-		if (titulo.length() < TITULO_MINIMO || titulo.length() > TEXTO_MAXIMO) {
-			throw erro(HttpStatus.BAD_REQUEST, "O título deve ter entre " + TITULO_MINIMO + " e " + TEXTO_MAXIMO + " caracteres.");
-		}
-		if (descricao.length() > TEXTO_MAXIMO) {
-			throw erro(HttpStatus.BAD_REQUEST, "A descrição deve ter no máximo " + TEXTO_MAXIMO + " caracteres.");
-		}
-		if (dados.pontuacao() == null || dados.pontuacao() < 1 || dados.pontuacao() > PONTUACAO_MAXIMA) {
-			throw erro(HttpStatus.BAD_REQUEST, "A pontuação deve ser um inteiro entre 1 e " + PONTUACAO_MAXIMA + ".");
-		}
+		exigirAdmin(usuario, "Somente administradores podem cadastrar quizzes.");
+		String titulo = validarTitulo(dados.titulo());
+		String descricao = validarDescricao(dados.descricao());
+		validarPontuacao(dados.pontuacao());
 		if (dados.palestraId() == null) {
 			throw erro(HttpStatus.BAD_REQUEST, "Selecione a palestra do quiz.");
 		}
-		Palestra palestra = palestras.findById(dados.palestraId())
+		// Bloqueia a linha da palestra: dois cadastros simultâneos para a mesma palestra passam um de cada vez.
+		Palestra palestra = palestras.buscarParaCheckIn(dados.palestraId())
 				.orElseThrow(() -> erro(HttpStatus.NOT_FOUND, "Palestra não encontrada."));
 		if (palestra.getEvento() == null || !palestra.getEvento().getAtivo()) {
 			throw erro(HttpStatus.CONFLICT, "A palestra não pertence a um evento ativo.");
 		}
-		if (quizzes.existsByPalestraIdAndTituloIgnoreCaseAndAtivoTrue(palestra.getId(), titulo)) {
-			throw erro(HttpStatus.CONFLICT, "Já existe um quiz com este título para a palestra selecionada.");
+		if (quizzes.existsByPalestraIdAndAtivoTrue(palestra.getId())) {
+			throw erro(HttpStatus.CONFLICT, PALESTRA_JA_TEM_QUIZ);
 		}
 		if (perguntasValidas(palestra).isEmpty()) {
 			throw erro(HttpStatus.BAD_REQUEST,
@@ -143,6 +134,22 @@ public class QuizService {
 		}
 		Quiz quiz = quizzes.save(new Quiz(titulo, descricao.isEmpty() ? null : descricao, dados.pontuacao(), palestra));
 		return montar(quiz, true, false, Set.of(), Set.of());
+	}
+
+	/**
+	 * Edita título, descrição e pontuação. As perguntas do quiz são as da palestra e se alteram pelo
+	 * cadastro de perguntas; quem já respondeu mantém os pontos que recebeu.
+	 */
+	@Transactional
+	public QuizDto atualizar(Usuario usuario, Long id, EdicaoQuiz dados) {
+		exigirAdmin(usuario, "Somente administradores podem editar quizzes.");
+		Quiz quiz = quizzes.findById(id).filter(Quiz::isAtivo)
+				.orElseThrow(() -> erro(HttpStatus.NOT_FOUND, "Quiz não encontrado."));
+		String titulo = validarTitulo(dados.titulo());
+		String descricao = validarDescricao(dados.descricao());
+		validarPontuacao(dados.pontuacao());
+		quiz.atualizar(titulo, descricao.isEmpty() ? null : descricao, dados.pontuacao());
+		return montar(quizzes.save(quiz), true, false, Set.of(), Set.of());
 	}
 
 	/**
@@ -273,6 +280,37 @@ public class QuizService {
 	private boolean fezCheckInNoEvento(Usuario usuario, Integer eventoId) {
 		return participacoes.findByUsuarioIdAndEventoIdOrderByIdAsc(usuario.getId(), eventoId).stream()
 				.map(Participacao::getCheckedInAt).anyMatch(java.util.Objects::nonNull);
+	}
+
+	private void exigirAdmin(Usuario usuario, String mensagem) {
+		if (!ehAdmin(usuario)) {
+			throw new CheckInException(403, "FORBIDDEN", mensagem);
+		}
+	}
+
+	private String validarTitulo(String bruto) {
+		String titulo = bruto == null ? "" : bruto.trim();
+		if (titulo.isEmpty()) {
+			throw erro(HttpStatus.BAD_REQUEST, "É necessário informar o título do quiz.");
+		}
+		if (titulo.length() < TITULO_MINIMO || titulo.length() > TEXTO_MAXIMO) {
+			throw erro(HttpStatus.BAD_REQUEST, "O título deve ter entre " + TITULO_MINIMO + " e " + TEXTO_MAXIMO + " caracteres.");
+		}
+		return titulo;
+	}
+
+	private String validarDescricao(String bruta) {
+		String descricao = bruta == null ? "" : bruta.trim();
+		if (descricao.length() > TEXTO_MAXIMO) {
+			throw erro(HttpStatus.BAD_REQUEST, "A descrição deve ter no máximo " + TEXTO_MAXIMO + " caracteres.");
+		}
+		return descricao;
+	}
+
+	private void validarPontuacao(Integer pontuacao) {
+		if (pontuacao == null || pontuacao < 1 || pontuacao > PONTUACAO_MAXIMA) {
+			throw erro(HttpStatus.BAD_REQUEST, "A pontuação deve ser um inteiro entre 1 e " + PONTUACAO_MAXIMA + ".");
+		}
 	}
 
 	private boolean ehAdmin(Usuario usuario) {
