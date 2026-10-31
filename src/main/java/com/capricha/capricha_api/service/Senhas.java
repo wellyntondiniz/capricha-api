@@ -11,6 +11,9 @@ public final class Senhas {
     public static final String PREFIXO = "pbkdf2$";
     private Senhas() {}
     public static String proteger(String senha) {
+        if (senha != null && senha.startsWith(PREFIXO)) {
+            return senha;
+        }
         byte[] salt = new byte[16];
         new SecureRandom().nextBytes(salt);
         return PREFIXO + "600000$" + Base64.getEncoder().encodeToString(salt) + "$"

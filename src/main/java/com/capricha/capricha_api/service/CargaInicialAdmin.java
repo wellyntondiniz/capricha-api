@@ -28,7 +28,7 @@ public class CargaInicialAdmin implements ApplicationRunner {
 	@Value("${app.admin.email:admin@capricha.com}")
 	private String adminEmail;
 
-	@Value("${app.admin.senha:Admin@123}")
+	@Value("${app.admin.senha:pbkdf2$600000$hUI8ip3gvlcZRkQZk+rASA==$66nx5FphyXZs1Q5ekLmQ5LV3mka3mREjunxehBGJRmI=}")
 	private String adminSenha;
 
 	public CargaInicialAdmin(UsuarioRepository usuarioRepository) {
@@ -69,9 +69,17 @@ public class CargaInicialAdmin implements ApplicationRunner {
 				alterado = true;
 			}
 
+			boolean senhaConfere = adminSenha.startsWith("pbkdf2$")
+					? adminSenha.equals(admin.getSenha())
+					: Senhas.confere(adminSenha, admin.getSenha());
+			if (!senhaConfere) {
+				admin.setSenha(Senhas.proteger(adminSenha));
+				alterado = true;
+			}
+
 			if (alterado) {
 				usuarioRepository.save(admin);
-				log.info("Usuário existente atualizado com perfil ADMIN e ativo: {}", emailNormalizado);
+				log.info("Usuário existente atualizado com perfil ADMIN e credenciais sincronizadas: {}", emailNormalizado);
 			} else {
 				log.info("Usuário administrador já existente e ativo: {}", emailNormalizado);
 			}
