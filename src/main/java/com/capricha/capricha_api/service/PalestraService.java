@@ -107,6 +107,10 @@ public class PalestraService {
 
         Palestra salva = palestraRepository.saveAndFlush(atual);
 
+        if (conflitoAgenda) {
+            throw new IllegalStateException(
+                "Palestrante já está em outra palestra nesta hora."
+            );
         if (!Objects.equals(imagemAntiga, salva.getImagem())) {
             armazenamento.remover(imagemAntiga);
         }
