@@ -1,7 +1,5 @@
 package com.capricha.capricha_api.rest;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,8 +11,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.capricha.capricha_api.service.AvaliacaoAplicativoService;
-import com.capricha.capricha_api.service.AvaliacaoAplicativoService.RespostaRecebida;
+import com.capricha.capricha_api.service.AvaliacaoAplicativoService.Respostas;
 import com.capricha.capricha_api.service.SessaoUsuarioService;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping("/avaliacoes-aplicativo")
@@ -29,31 +33,33 @@ public class AvaliacaoAplicativoRestController {
         this.sessoes = sessoes;
     }
 
-    @GetMapping("/perguntas")
-    public List<PerguntaResponse> perguntas() {
-        return avaliacoes.listarPerguntas().stream()
-                .map(p -> new PerguntaResponse(p.getId(), p.getTexto(), p.getOrdem()))
-                .toList();
-    }
-
     @GetMapping("/minha")
     public StatusResponse minha(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         return new StatusResponse(avaliacoes.jaRespondeu(sessoes.autenticar(authorization)));
     }
 
-    @PostMapping("/respostas")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public MensagemResponse responder(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @RequestBody EnvioRequest envio) {
-        avaliacoes.responder(sessoes.autenticar(authorization),
-                envio == null ? null : envio.respostas());
+            @Valid @RequestBody AvaliacaoRequest request) {
+        avaliacoes.salvar(sessoes.autenticar(authorization), new Respostas(
+                request.navegacao(), request.clarezaInformacoes(),
+                request.utilidadeFuncionalidades(), request.desempenhoTecnico(),
+                request.recomendacao(), request.comentario()));
         return new MensagemResponse("Avaliação enviada com sucesso. Obrigado pela sua opinião!");
     }
 
-    public record PerguntaResponse(Integer id, String texto, Integer ordem) {}
+    public record AvaliacaoRequest(
+            @NotNull @Min(1) @Max(5) Integer navegacao,
+            @NotNull @Min(1) @Max(5) Integer clarezaInformacoes,
+            @NotNull @Min(1) @Max(5) Integer utilidadeFuncionalidades,
+            @NotNull @Min(1) @Max(5) Integer desempenhoTecnico,
+            @NotNull @Min(1) @Max(5) Integer recomendacao,
+            @Size(max = 1000, message = "O comentário deve ter no máximo 1000 caracteres.")
+            String comentario) {}
+
     public record StatusResponse(boolean respondida) {}
-    public record EnvioRequest(List<RespostaRecebida> respostas) {}
     public record MensagemResponse(String mensagem) {}
 }

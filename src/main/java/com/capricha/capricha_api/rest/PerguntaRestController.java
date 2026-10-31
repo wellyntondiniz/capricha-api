@@ -40,4 +40,9 @@ public class PerguntaRestController {
 	public Pergunta updatePergunta(@PathVariable Integer id, @RequestBody Pergunta pergunta) {
 		return perguntaService.updatePergunta(id, pergunta);
 	}
+	
+	@PutMapping("/deletar/{id}")
+	public Pergunta deletarPergunta(@PathVariable Integer id) {
+		return perguntaService.deletar(id);
+	}
 }

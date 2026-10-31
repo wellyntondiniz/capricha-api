@@ -25,10 +25,10 @@ public class CargaInicialAdmin implements ApplicationRunner {
 	@Value("${app.admin.nome:Administrador}")
 	private String adminNome;
 
-	@Value("${app.admin.email:}")
+	@Value("${app.admin.email:admin@capricha.com}")
 	private String adminEmail;
 
-	@Value("${app.admin.senha:}")
+	@Value("${app.admin.senha:Admin@123}")
 	private String adminSenha;
 
 	public CargaInicialAdmin(UsuarioRepository usuarioRepository) {

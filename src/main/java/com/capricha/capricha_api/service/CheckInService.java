@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.*;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.capricha.capricha_api.entidade.*;
@@ -21,6 +23,8 @@ public class CheckInService {
     private final CheckInQrService qr;
     private final PalestraRepository palestras;
     private final PresencaPalestraRepository presencasPalestra;
+    @Autowired
+    private ParticipacaoService participacaoService;
 
     public CheckInService(EventoRepository eventos, ParticipacaoRepository participacoes, CheckInQrService qr,
             PalestraRepository palestras, PresencaPalestraRepository presencasPalestra) {
@@ -78,7 +82,7 @@ public class CheckInService {
             participacao = new Participacao();
             participacao.setEvento(evento);
             participacao.setUsuario(usuario);
-            participacao.setScore(0);
+            participacao.setScore(150);
         } else {
             participacao = existentes.get(0);
         }
@@ -177,6 +181,11 @@ public class CheckInService {
         PresencaPalestra presenca;
         try {
             presenca = presencasPalestra.saveAndFlush(new PresencaPalestra(usuario, palestra, Instant.now()));
+            
+            if (palestra.getEvento() == null || palestra.getEvento().getId() == null) {
+                System.out.println("A palestra não possui um evento associado.");
+            }
+            participacaoService.atualizarScore(usuario.getId(), palestra.getEvento().getId(), 150);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             String detalhe = e.getMostSpecificCause().getMessage();
             if (detalhe != null && detalhe.toLowerCase(Locale.ROOT).contains("uk_presenca_usuario_palestra")) {

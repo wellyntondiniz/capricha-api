@@ -1,78 +1,49 @@
 package com.capricha.capricha_api.service;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.capricha.capricha_api.entidade.PerguntaAvaliacaoAplicativo;
-import com.capricha.capricha_api.entidade.RespostaAvaliacaoAplicativo;
+import com.capricha.capricha_api.entidade.AvaliacaoAplicativo;
 import com.capricha.capricha_api.entidade.Usuario;
-import com.capricha.capricha_api.repository.PerguntaAvaliacaoAplicativoRepository;
-import com.capricha.capricha_api.repository.RespostaAvaliacaoAplicativoRepository;
+import com.capricha.capricha_api.repository.AvaliacaoAplicativoRepository;
 
 @Service
 public class AvaliacaoAplicativoService {
-    private final PerguntaAvaliacaoAplicativoRepository perguntas;
-    private final RespostaAvaliacaoAplicativoRepository respostas;
+    private final AvaliacaoAplicativoRepository avaliacoes;
 
-    public AvaliacaoAplicativoService(PerguntaAvaliacaoAplicativoRepository perguntas,
-            RespostaAvaliacaoAplicativoRepository respostas) {
-        this.perguntas = perguntas;
-        this.respostas = respostas;
-    }
-
-    @Transactional(readOnly = true)
-    public List<PerguntaAvaliacaoAplicativo> listarPerguntas() {
-        return perguntas.findByAtivaTrueOrderByOrdemAscIdAsc();
+    public AvaliacaoAplicativoService(AvaliacaoAplicativoRepository avaliacoes) {
+        this.avaliacoes = avaliacoes;
     }
 
     @Transactional(readOnly = true)
     public boolean jaRespondeu(Usuario usuario) {
         validarParticipante(usuario);
-        return respostas.existsByUsuarioId(usuario.getId());
+        return avaliacoes.existsByUsuarioId(usuario.getId());
     }
 
     @Transactional
-    public void responder(Usuario usuario, List<RespostaRecebida> recebidas) {
+    public AvaliacaoAplicativo salvar(Usuario usuario, Respostas respostas) {
         validarParticipante(usuario);
-        if (respostas.existsByUsuarioId(usuario.getId())) {
+        if (avaliacoes.existsByUsuarioId(usuario.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Você já enviou a avaliação do aplicativo.");
         }
 
-        List<PerguntaAvaliacaoAplicativo> ativas = listarPerguntas();
-        if (ativas.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Não há perguntas de avaliação disponíveis.");
-        }
-        if (recebidas == null || recebidas.size() != ativas.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Responda todas as perguntas da avaliação.");
-        }
-
-        var idsAtivos = ativas.stream().map(PerguntaAvaliacaoAplicativo::getId).collect(java.util.stream.Collectors.toSet());
-        var idsRecebidos = new HashSet<Integer>();
-        Instant agora = Instant.now();
-        for (RespostaRecebida recebida : recebidas) {
-            if (recebida == null || recebida.perguntaId() == null || recebida.nota() == null
-                    || recebida.nota() < 1 || recebida.nota() > 5
-                    || !idsAtivos.contains(recebida.perguntaId())
-                    || !idsRecebidos.add(recebida.perguntaId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "As respostas da avaliação são inválidas.");
-            }
-            var resposta = new RespostaAvaliacaoAplicativo();
-            resposta.setUsuario(usuario);
-            resposta.setPergunta(perguntas.getReferenceById(recebida.perguntaId()));
-            resposta.setNota(recebida.nota());
-            resposta.setRespondidaEm(agora);
-            respostas.save(resposta);
-        }
+        var avaliacao = new AvaliacaoAplicativo();
+        avaliacao.setUsuario(usuario);
+        avaliacao.setNavegacao(respostas.navegacao());
+        avaliacao.setClarezaInformacoes(respostas.clarezaInformacoes());
+        avaliacao.setUtilidadeFuncionalidades(respostas.utilidadeFuncionalidades());
+        avaliacao.setDesempenhoTecnico(respostas.desempenhoTecnico());
+        avaliacao.setRecomendacao(respostas.recomendacao());
+        String comentario = respostas.comentario() == null ? null : respostas.comentario().trim();
+        avaliacao.setComentario(comentario == null || comentario.isEmpty() ? null : comentario);
+        avaliacao.setRespondidaEm(Instant.now());
+        return avaliacoes.save(avaliacao);
     }
 
     private void validarParticipante(Usuario usuario) {
@@ -82,5 +53,7 @@ public class AvaliacaoAplicativoService {
         }
     }
 
-    public record RespostaRecebida(Integer perguntaId, Integer nota) {}
+    public record Respostas(Integer navegacao, Integer clarezaInformacoes,
+            Integer utilidadeFuncionalidades, Integer desempenhoTecnico,
+            Integer recomendacao, String comentario) {}
 }
