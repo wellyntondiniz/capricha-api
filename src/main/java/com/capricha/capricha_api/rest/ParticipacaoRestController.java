@@ -10,9 +10,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.capricha.capricha_api.service.ParticipacaoService;
+import com.capricha.capricha_api.service.SessaoUsuarioService;
+import com.capricha.capricha_api.entidade.Usuario;
 
 import jakarta.validation.Valid;
 
@@ -25,6 +28,9 @@ public class ParticipacaoRestController {
 	
 	@Autowired
 	ParticipacaoService participacaoService;
+
+	@Autowired
+	SessaoUsuarioService sessoes;
 	
 	@GetMapping
 	public List<Participacao> getParticipacoes() {
@@ -51,8 +57,15 @@ public class ParticipacaoRestController {
 		return participacaoService.inscricao(participacao);
 	}
 	
+	// Ajuste manual de pontos: o ranking não pode ser alterado por quem não está autenticado como administrador.
+	// Os pontos das atividades (check-in, quiz, votos, conexões) são lançados pelo servidor, não por este endpoint.
 	@PutMapping("/usuario/{usuarioId}/evento/{eventoId}/score/{score}")
-	public Participacao atualizarScore(@PathVariable Integer usuarioId, @PathVariable Integer eventoId, @PathVariable Integer score) {
+	public Participacao atualizarScore(@PathVariable Integer usuarioId, @PathVariable Integer eventoId, @PathVariable Integer score,
+			@RequestHeader(value = "Authorization", required = false) String authorization) {
+		Usuario solicitante = sessoes.autenticar(authorization);
+		if (!"ADMIN".equalsIgnoreCase(solicitante.getPerfil()) && !"ADMINISTRADOR".equalsIgnoreCase(solicitante.getPerfil())) {
+			throw new CheckInException(403, "FORBIDDEN", "Somente administradores podem ajustar a pontuação.");
+		}
 		return participacaoService.atualizarScore(usuarioId, eventoId, score);
 	}
 }

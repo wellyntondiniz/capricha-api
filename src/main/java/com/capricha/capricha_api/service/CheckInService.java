@@ -18,6 +18,8 @@ import com.capricha.capricha_api.model.Palestra;
 public class CheckInService {
     // Mesmo fuso usado pelo cadastro de eventos da develop.
     private static final ZoneId FUSO = ZoneId.of("America/Cuiaba");
+    public static final int PONTOS_CHECK_IN_EVENTO = 150;
+    public static final int PONTOS_CHECK_IN_PALESTRA = 150;
     private final EventoRepository eventos;
     private final ParticipacaoRepository participacoes;
     private final CheckInQrService qr;
@@ -82,10 +84,12 @@ public class CheckInService {
             participacao = new Participacao();
             participacao.setEvento(evento);
             participacao.setUsuario(usuario);
-            participacao.setScore(150);
+            participacao.setScore(0);
         } else {
             participacao = existentes.get(0);
         }
+        // Os pontos da presença valem igualmente para quem já tinha inscrição (antes só quem não tinha recebia).
+        participacao.setScore((participacao.getScore() == null ? 0 : participacao.getScore()) + PONTOS_CHECK_IN_EVENTO);
         participacao.setCheckedInAt(Instant.now());
         participacoes.saveAndFlush(participacao);
         return new Registro(participacao.getId(), id, evento.getNome(), participacao.getCheckedInAt(),
@@ -178,14 +182,18 @@ public class CheckInService {
                 palestra.getDataTermino(), LocalDateTime.now(FUSO))) {
             throw new CheckInException(409, "CHECK_IN_NOT_AVAILABLE", "Check-in não disponível para esta palestra neste momento.");
         }
+        // A disponibilidade acima já garante que a palestra tem um evento ativo.
+        Integer eventoId = palestra.getEvento().getId();
+        boolean presenteNoEvento = participacoes.findByUsuarioIdAndEventoIdOrderByIdAsc(usuario.getId(), eventoId).stream()
+                .anyMatch(p -> p.getCheckedInAt() != null);
+        if (!presenteNoEvento) {
+            throw new CheckInException(409, "EVENT_CHECK_IN_REQUIRED",
+                    "Faça o check-in no evento antes de registrar presença na palestra.");
+        }
         PresencaPalestra presenca;
         try {
             presenca = presencasPalestra.saveAndFlush(new PresencaPalestra(usuario, palestra, Instant.now()));
-            
-            if (palestra.getEvento() == null || palestra.getEvento().getId() == null) {
-                System.out.println("A palestra não possui um evento associado.");
-            }
-            participacaoService.atualizarScore(usuario.getId(), palestra.getEvento().getId(), 150);
+            participacaoService.atualizarScore(usuario.getId(), eventoId, PONTOS_CHECK_IN_PALESTRA);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             String detalhe = e.getMostSpecificCause().getMessage();
             if (detalhe != null && detalhe.toLowerCase(Locale.ROOT).contains("uk_presenca_usuario_palestra")) {

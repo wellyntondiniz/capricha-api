@@ -61,14 +61,16 @@ public class ParticipacaoService {
 		// Evita salvar uma cópia anterior ao check-in e apagar sua data de presença.
 		eventoRepository.buscarParaCheckIn(eventoId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento não encontrado."));
-		Participacao participacao = participacaoRepository.findByUsuarioIdAndEventoId(usuarioId, eventoId);
-		if (participacao == null) {
+		// Bancos antigos podem ter participações duplicadas do mesmo par; a pontuação vai sempre para a primeira,
+		// a mesma que o check-in e as demais regras consideram.
+		var existentes = participacaoRepository.findByUsuarioIdAndEventoIdOrderByIdAsc(usuarioId, eventoId);
+		if (existentes.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Participação não encontrada.");
 		}
+		Participacao participacao = existentes.get(0);
 		
-		score = participacao.getScore() + score;
-		
-		participacao.setScore(score);
+		int atual = participacao.getScore() == null ? 0 : participacao.getScore();
+		participacao.setScore(atual + score);
 		return participacaoRepository.save(participacao);
 	}
 }

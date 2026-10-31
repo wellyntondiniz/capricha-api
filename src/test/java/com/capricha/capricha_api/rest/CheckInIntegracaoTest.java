@@ -122,18 +122,27 @@ class CheckInIntegracaoTest {
         mvc.perform(post("/evento/" + evento.getId() + "/check-in").header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(pedido(qr))).andExpect(status().isCreated());
         var salvo = participacoes.findById(p.getId()).orElseThrow();
-        assertEquals(90, salvo.getScore());
+        // 90 da inscrição + 150 pela presença; antes, quem já estava inscrito não recebia os 150.
+        assertEquals(240, salvo.getScore());
         assertNotNull(salvo.getCheckedInAt());
         mvc.perform(post("/evento/" + evento.getId() + "/check-in").header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(pedido(qr)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ALREADY_CHECKED_IN"));
+        assertEquals(240, participacoes.findById(p.getId()).orElseThrow().getScore());
         // O endpoint antigo de inscrição não pode apagar a presença nem zerar a pontuação.
         mvc.perform(post("/participacao").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("id", p.getId(), "usuario", Map.of("id", usuario.getId()),
                         "evento", Map.of("id", evento.getId()), "checkedInAt", Instant.now().toString(), "score", 0))))
                 .andExpect(status().isOk());
         assertEquals(salvo.getCheckedInAt(), participacoes.findById(p.getId()).orElseThrow().getCheckedInAt());
-        assertEquals(90, participacoes.findById(p.getId()).orElseThrow().getScore());
+        assertEquals(240, participacoes.findById(p.getId()).orElseThrow().getScore());
+    }
+
+    @Test
+    void checkInSemInscricaoPreviaCriaParticipacaoCom150Pontos() throws Exception {
+        mvc.perform(post("/evento/" + evento.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedido(qrToken()))).andExpect(status().isCreated());
+        assertEquals(150, participacoes.findByUsuarioIdAndEventoIdOrderByIdAsc(usuario.getId(), evento.getId()).get(0).getScore());
     }
 
     @Test
@@ -243,7 +252,7 @@ class CheckInIntegracaoTest {
         var salvos = participacoes.findByUsuarioIdAndEventoIdOrderByIdAsc(usuario.getId(), evento.getId());
         assertEquals(2, salvos.size());
         assertEquals(1, salvos.stream().filter(p -> p.getCheckedInAt() != null).count());
-        assertEquals(List.of(15, 25), salvos.stream().map(Participacao::getScore).toList());
+        assertEquals(List.of(165, 25), salvos.stream().map(Participacao::getScore).toList());
     }
 
     @Test
@@ -263,7 +272,8 @@ class CheckInIntegracaoTest {
             });
             var score = pool.submit(() -> {
                 iniciar.await();
-                return mvc.perform(put("/participacao/usuario/" + usuario.getId() + "/evento/" + evento.getId() + "/score/10"))
+                return mvc.perform(put("/participacao/usuario/" + usuario.getId() + "/evento/" + evento.getId() + "/score/10")
+                        .header("Authorization", "Bearer " + adminToken))
                         .andReturn().getResponse().getStatus();
             });
             iniciar.countDown();
@@ -271,8 +281,30 @@ class CheckInIntegracaoTest {
             assertEquals(200, score.get(20, TimeUnit.SECONDS));
             var salvo = participacoes.findById(id).orElseThrow();
             assertNotNull(salvo.getCheckedInAt());
-            assertEquals(50, salvo.getScore());
+            assertEquals(200, salvo.getScore()); // 40 + 150 da presença + 10 do ajuste
         } finally { pool.shutdownNow(); }
+    }
+
+    /** Presença confirmada no evento, pré-requisito para registrar presença em palestras. */
+    private Participacao presencaNoEvento(Usuario u) {
+        Participacao p = new Participacao();
+        p.setUsuario(u); p.setEvento(evento); p.setScore(0); p.setCheckedInAt(Instant.now());
+        return participacoes.saveAndFlush(p);
+    }
+
+    private int pontos(Usuario u) {
+        return participacoes.findByUsuarioIdAndEventoIdOrderByIdAsc(u.getId(), evento.getId()).get(0).getScore();
+    }
+
+    @Test
+    void ajusteManualDePontosExigeAdministrador() throws Exception {
+        Participacao p = presencaNoEvento(usuario);
+        String url = "/participacao/usuario/" + usuario.getId() + "/evento/" + evento.getId() + "/score/999";
+        mvc.perform(put(url)).andExpect(status().isUnauthorized());
+        mvc.perform(put(url).header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
+        assertEquals(0, participacoes.findById(p.getId()).orElseThrow().getScore());
+        mvc.perform(put(url).header("Authorization", "Bearer " + adminToken)).andExpect(status().isOk());
+        assertEquals(999, participacoes.findById(p.getId()).orElseThrow().getScore());
     }
 
     private com.capricha.capricha_api.model.Palestra palestra() {
@@ -351,6 +383,7 @@ class CheckInIntegracaoTest {
 
     @Test
     void identificaConfirmaERestauraPresencaDaPalestraParaUsuarioAutenticado() throws Exception {
+        presencaNoEvento(usuario);
         var p = palestra();
         String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
         mvc.perform(post("/palestras/" + p.getId() + "/check-in/validar").header("Authorization", "Bearer " + token)
@@ -363,6 +396,7 @@ class CheckInIntegracaoTest {
                 .andExpect(jsonPath("$.lectureId").value(p.getId())).andExpect(jsonPath("$.checkedInAt").isString());
         assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), p.getId()).isPresent());
         assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(admin.getId(), p.getId()).isEmpty());
+        assertEquals(150, pontos(usuario));
         mvc.perform(get("/palestras/check-in").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].hasCheckedIn").value(true));
         mvc.perform(get("/palestras/check-in").header("Authorization", "Bearer " + adminToken))
@@ -417,6 +451,7 @@ class CheckInIntegracaoTest {
 
     @Test
     void palestraAntigaSemTerminoMantemDadosEEventoDesativadoImpedeNovaPresenca() throws Exception {
+        presencaNoEvento(usuario);
         var p = palestra(LocalDateTime.now(ZoneId.of("America/Cuiaba")).minusMinutes(30), null);
         String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
         mvc.perform(post("/palestras/" + p.getId() + "/check-in").header("Authorization", "Bearer " + token)
@@ -428,30 +463,46 @@ class CheckInIntegracaoTest {
     }
 
     @Test
-    void presencasDeEventoEPalestrasSaoIndependentesEScorePermaneceIntacto() throws Exception {
+    void presencaNaPalestraExigeCheckInNoEventoEPontuaCadaUmaUmaVez() throws Exception {
         Participacao inscricao = new Participacao();
         inscricao.setUsuario(usuario); inscricao.setEvento(evento); inscricao.setScore(90);
         Integer inscricaoId = participacoes.saveAndFlush(inscricao).getId();
         var a = palestra(); var b = palestra();
+        // Inscrição não é presença: sem check-in no evento a palestra é recusada e nada é gravado.
+        mvc.perform(post("/palestras/" + a.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(a.getId(), qrPalestra(a.getId()))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("EVENT_CHECK_IN_REQUIRED"));
+        assertEquals(0, presencasPalestra.count());
+        assertNull(participacoes.findById(inscricaoId).orElseThrow().getCheckedInAt());
+        assertEquals(90, participacoes.findById(inscricaoId).orElseThrow().getScore());
+        // Sem nenhuma participação o resultado é o mesmo (e nada fica pela metade).
+        mvc.perform(post("/palestras/" + a.getId() + "/check-in").header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(a.getId(), qrPalestra(a.getId()))))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("EVENT_CHECK_IN_REQUIRED"));
+        assertEquals(0, presencasPalestra.count());
+        // Com o evento confirmado (+150), cada palestra soma +150 uma única vez.
+        mvc.perform(post("/evento/" + evento.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedido(qrToken()))).andExpect(status().isCreated());
+        assertEquals(240, participacoes.findById(inscricaoId).orElseThrow().getScore());
         mvc.perform(post("/palestras/" + a.getId() + "/check-in").header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(a.getId(), qrPalestra(a.getId()))))
                 .andExpect(status().isCreated());
-        assertNull(participacoes.findById(inscricaoId).orElseThrow().getCheckedInAt());
-        assertEquals(90, participacoes.findById(inscricaoId).orElseThrow().getScore());
-        assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), b.getId()).isEmpty());
-        mvc.perform(post("/evento/" + evento.getId() + "/check-in").header("Authorization", "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON).content(pedido(qrToken()))).andExpect(status().isCreated());
+        assertEquals(390, participacoes.findById(inscricaoId).orElseThrow().getScore());
         assertTrue(presencasPalestra.findByUsuarioIdAndPalestraId(usuario.getId(), b.getId()).isEmpty());
         mvc.perform(post("/palestras/" + b.getId() + "/check-in").header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(b.getId(), qrPalestra(b.getId()))))
                 .andExpect(status().isCreated());
+        mvc.perform(post("/palestras/" + b.getId() + "/check-in").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(pedidoPalestra(b.getId(), qrPalestra(b.getId()))))
+                .andExpect(status().isConflict());
         assertEquals(2, presencasPalestra.count());
         assertEquals(1, participacoes.count());
-        assertEquals(90, participacoes.findById(inscricaoId).orElseThrow().getScore());
+        assertEquals(540, participacoes.findById(inscricaoId).orElseThrow().getScore());
     }
 
     @Test
     void duasConfirmacoesConcorrentesDaPalestraGeramUmaPresencaEIndiceUnicoImpedeOutra() throws Exception {
+        presencaNoEvento(usuario);
         var p = palestra();
         String body = pedidoPalestra(p.getId(), qrPalestra(p.getId()));
         ExecutorService pool = Executors.newFixedThreadPool(2);
