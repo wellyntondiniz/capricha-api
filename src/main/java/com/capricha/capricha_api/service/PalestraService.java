@@ -18,11 +18,16 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Objects;
 
 @Service
 public class PalestraService {
+
+    // Tamanho padrão das colunas de texto (VARCHAR 255)
+    private static final int TAMANHO_MAXIMO_TEXTO = 255;
 
     private static final ZoneId FUSO = ZoneId.of("America/Cuiaba");
     // STRICT: rejeita datas inexistentes (ex.: 31/02/2026) em vez de "arredondar".
@@ -138,7 +143,12 @@ public class PalestraService {
 
     public Pergunta adicionarPergunta(Long id, Pergunta pergunta) {
         Palestra palestra = buscarPorId(id);
+        validarPergunta(pergunta, palestra);
 
+        pergunta.setEnunciado(pergunta.getEnunciado().trim());
+        for (Alternativa alternativa : pergunta.getAlternativas()) {
+            alternativa.setTexto(alternativa.getTexto().trim());
+        }
         palestra.adicionarPergunta(pergunta);
 
         for (Alternativa alternativa : pergunta.getAlternativas()) {
@@ -257,6 +267,49 @@ public class PalestraService {
         }
     }
 
+    private void validarPergunta(Pergunta pergunta, Palestra palestra) {
+        if (pergunta == null || vazio(pergunta.getEnunciado())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Digite o enunciado da pergunta.");
+        }
+        if (pergunta.getEnunciado().trim().length() > TAMANHO_MAXIMO_TEXTO) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O enunciado pode ter no máximo " + TAMANHO_MAXIMO_TEXTO + " caracteres.");
+        }
+        String enunciado = pergunta.getEnunciado().trim();
+        boolean enunciadoRepetido = palestra.getPerguntas().stream()
+                .anyMatch(existente -> existente.getEnunciado() != null
+                        && existente.getEnunciado().trim().equalsIgnoreCase(enunciado));
+        if (enunciadoRepetido) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Esta palestra já tem uma pergunta com este enunciado.");
+        }
+
+        List<Alternativa> alternativas = pergunta.getAlternativas();
+        if (alternativas == null || alternativas.size() < 2) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe pelo menos duas alternativas.");
+        }
+        Set<String> textos = new HashSet<>();
+        for (Alternativa alternativa : alternativas) {
+            if (alternativa == null || vazio(alternativa.getTexto())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Preencha o texto de todas as alternativas.");
+            }
+            if (alternativa.getTexto().trim().length() > TAMANHO_MAXIMO_TEXTO) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cada alternativa pode ter no máximo " + TAMANHO_MAXIMO_TEXTO + " caracteres.");
+            }
+            if (!textos.add(alternativa.getTexto().trim().toLowerCase())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "As alternativas não podem se repetir.");
+            }
+        }
+        long corretas = alternativas.stream().filter(Alternativa::getCorreta).count();
+        if (corretas == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Marque pelo menos uma alternativa correta.");
+        }
+        if (corretas == alternativas.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pelo menos uma alternativa precisa ser incorreta.");
+        }
+    }
+
+    private boolean vazio(String valor) {
     private static String limpar(String valor) {
         return valor == null ? "" : valor.trim();
     }

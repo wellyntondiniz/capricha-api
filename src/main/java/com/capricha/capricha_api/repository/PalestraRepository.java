@@ -12,6 +12,15 @@ import java.util.Optional;
 
 public interface PalestraRepository extends JpaRepository<Palestra, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Palestra p where p.id = :id")
+    java.util.Optional<Palestra> buscarParaCheckIn(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "evento")
+    List<Palestra> findByEventoAtivoTrue();
+
+    List<Palestra> findByEventoId(Integer eventoId);
+
     boolean existsByPalestranteAndDataAndHorario(String palestrante, String data, String horario);
 
     boolean existsByNomeAndDataAndHorarioAndPalestrante(String nome, String data, String horario, String palestrante);
