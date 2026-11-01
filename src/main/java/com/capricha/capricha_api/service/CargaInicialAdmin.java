@@ -28,7 +28,7 @@ public class CargaInicialAdmin implements ApplicationRunner {
 	@Value("${app.admin.email:admin@capricha.com}")
 	private String adminEmail;
 
-	@Value("${app.admin.senha:pbkdf2$600000$hUI8ip3gvlcZRkQZk+rASA==$66nx5FphyXZs1Q5ekLmQ5LV3mka3mREjunxehBGJRmI=}")
+	@Value("${app.admin.senha:pbkdf2$600000$hUI8ip3gvlcZRkQZk+rASA==$NmIABan43mNTwHN4Ipco+/RjsBCIUykQnx97pktVcpo=}")
 	private String adminSenha;
 
 	public CargaInicialAdmin(UsuarioRepository usuarioRepository) {
